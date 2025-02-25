@@ -14,9 +14,10 @@ function App() {
   return (
     <Router basename="/omniportal">
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin" element={<AdminDashboardPage />}>
+          <Route index element={<DashboardContent />} />
           <Route path="dashboard" element={<DashboardContent />} />
           <Route path="clients" element={<ClientsPage />} />
           <Route path="documents" element={<DocumentsPage />} />
@@ -26,6 +27,7 @@ function App() {
           <Route path="team-chat" element={<TeamChatPage />} />
           <Route path="ticket" element={<TicketPage />} />
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

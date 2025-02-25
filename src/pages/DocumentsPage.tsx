@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 interface Client {
   id: number;
   Name: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 interface DocumentForm {
@@ -17,6 +19,9 @@ interface DocumentForm {
 
 const DocumentsPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortByLastName, setSortByLastName] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,6 +40,34 @@ const DocumentsPage: React.FC = () => {
     fetchClients();
   }, []);
 
+  // Process and sort clients
+  useEffect(() => {
+    const processedClients = clients.map(client => {
+      const nameParts = client.Name.split(' ');
+      return {
+        ...client,
+        firstName: nameParts[0] || '',
+        lastName: nameParts[nameParts.length - 1] || ''
+      };
+    });
+
+    // Sort based on toggle
+    const sortedClients = [...processedClients].sort((a, b) => 
+      sortByLastName
+        ? (a.lastName || '').localeCompare(b.lastName || '')
+        : (a.firstName || '').localeCompare(b.firstName || '')
+    );
+
+    // Filter based on search query
+    const filtered = searchQuery
+      ? sortedClients.filter(client =>
+          client.Name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : sortedClients;
+
+    setFilteredClients(filtered);
+  }, [clients, searchQuery, sortByLastName]);
+
   const fetchClients = async () => {
     try {
       const { data, error } = await supabase
@@ -49,6 +82,10 @@ const DocumentsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSort = () => {
+    setSortByLastName(!sortByLastName);
   };
 
   const handleUpload = (client: Client) => {
@@ -150,12 +187,29 @@ const DocumentsPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Documents</h1>
+      <h1 className="text-2xl font-bold mb-4">Documents</h1>
+      
+      <div className="flex gap-4 mb-4">
+        {/* Search Bar */}
+        <input
+          type="text"
+          placeholder="Search clients..."
+          className="flex-1 p-2 border rounded-lg"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        
+        {/* Sort Toggle Button */}
+        <button
+          onClick={toggleSort}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Sort by {sortByLastName ? 'First Name' : 'Last Name'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clients.map((client) => (
+        {filteredClients.map((client) => (
           <div key={client.id} className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">{client.Name}</h2>
