@@ -14,11 +14,10 @@ type MenuItem = {
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isRestrictedUser, setIsRestrictedUser] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Re-enable auth check
   useEffect(() => {
     checkAdminAuth();
     // Check if user is restricted
@@ -27,7 +26,6 @@ const AdminDashboardPage = () => {
   }, []);
 
   const checkAdminAuth = async () => {
-    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -50,9 +48,8 @@ const AdminDashboardPage = () => {
       }
 
     } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      console.error('Auth error:', err.message);
+      navigate('/login');
     }
   };
 
@@ -62,7 +59,7 @@ const AdminDashboardPage = () => {
       localStorage.removeItem('userEmail'); // Clear the stored email
       navigate('/login');
     } catch (err: any) {
-      setError(err.message);
+      console.error('Sign out error:', err.message);
     }
   };
 
