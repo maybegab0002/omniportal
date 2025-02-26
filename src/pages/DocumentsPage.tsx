@@ -14,10 +14,10 @@ interface Client {
 interface Document {
   id: number;
   Name: string;
-  'TIN ID': string;
-  Email: string;
-  'Contact No': string;
-  'Marital Status': string;
+  'TIN ID': string | null;
+  Email: string | null;
+  'Contact No': string | null;
+  'Marital Status': string | null;
   created_at: string;
 }
 
@@ -200,11 +200,11 @@ const DocumentsPage: React.FC = () => {
         .insert([
           {
             Name: selectedClient.Name,
-            Address: formData.Address,
-            'TIN ID': formData['TIN ID'],
-            Email: formData.Email,
-            'Contact No': formData['Contact No'],
-            'Marital Status': formData['Marital Status'],
+            Address: formData.Address || null,
+            'TIN ID': formData['TIN ID'] || null,
+            Email: formData.Email || null,
+            'Contact No': formData['Contact No'] || null,
+            'Marital Status': formData['Marital Status'] || null,
           }
         ]);
 
@@ -375,7 +375,6 @@ const DocumentsPage: React.FC = () => {
                         value={formData.Address}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        required
                       />
                     </div>
 
@@ -389,7 +388,6 @@ const DocumentsPage: React.FC = () => {
                         value={formData['TIN ID']}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        required
                       />
                     </div>
 
@@ -404,7 +402,6 @@ const DocumentsPage: React.FC = () => {
                           value={formData.Email}
                           onChange={handleInputChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                          required
                         />
                       </div>
 
@@ -418,7 +415,6 @@ const DocumentsPage: React.FC = () => {
                           value={formData['Contact No']}
                           onChange={handleInputChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                          required
                         />
                       </div>
                     </div>
@@ -432,7 +428,6 @@ const DocumentsPage: React.FC = () => {
                         value={formData['Marital Status']}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        required
                       >
                         <option value="">Select status</option>
                         <option value="Single">Single</option>
