@@ -1,0 +1,182 @@
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #000000;
+  border-radius: 10px;
+  border: 2px solid #ffffff;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1f2937;
+  border: 1.5px solid #ffffff;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 #ffffff;
+}
+
+/* For dark mode */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-track {
+    background: #000000;
+    border: 1px solid #1f2937;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #ffffff;
+    border: 2px solid #000000;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ffffff;
+  }
+
+  * {
+    scrollbar-color: #ffffff #000000;
+  }
+}
+
+/* Custom class for elements that need scrollbar */
+.custom-scrollbar {
+  scrollbar-gutter: stable;
+  overflow: auto;
+}
+
+/* Clean scrollbar style */
+.clean-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.clean-scrollbar::-webkit-scrollbar-thumb {
+  background: #000000;
+  border: none;
+  border-radius: 6px;
+}
+
+.clean-scrollbar::-webkit-scrollbar-track {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+}
+
+/* For modal content */
+.modal-scrollbar {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.modal-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb {
+  background: #000000;
+  border-radius: 6px;
+  border: none;
+}
+
+.modal-scrollbar::-webkit-scrollbar-track {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 6px;
+}
+
+/* For tables */
+.table-scrollbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.table-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: #000000;
+  border: none;
+  border-radius: 6px;
+}
+
+.table-scrollbar::-webkit-scrollbar-track {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+}
+
+/* For sidebar */
+.sidebar-scrollbar {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: #000000;
+  border: none;
+  border-radius: 4px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+}
+
+/* For dropdowns */
+.dropdown-scrollbar {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.dropdown-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dropdown-scrollbar::-webkit-scrollbar-thumb {
+  background: #000000;
+  border: none;
+  border-radius: 4px;
+}
+
+.dropdown-scrollbar::-webkit-scrollbar-track {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+}
+
+/* Hover effect for all scrollbars */
+*::-webkit-scrollbar-thumb:hover {
+  background: #1f2937;
+}
+
+/* Animated scrollbar on hover */
+.animated-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #000000, #000000);
+  background-size: 200% 200%;
+  animation: gradient 3s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

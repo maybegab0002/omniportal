@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import PageTransition from '../components/PageTransition';
 
 // Define types for menu items
 type MenuItem = {
@@ -256,7 +257,9 @@ const AdminDashboardPage = () => {
 
         {/* Content */}
         <div className="p-6">
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </div>
       </div>
     </div>

@@ -1,0 +1,84 @@
+/* Page Transition Styles */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 400ms, transform 400ms;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 400ms, transform 400ms;
+}
+
+/* Additional animation classes */
+.fade-slide-up {
+  animation: fadeSlideUp 0.5s ease forwards;
+}
+
+.fade-slide-down {
+  animation: fadeSlideDown 0.5s ease forwards;
+}
+
+.fade-slide-left {
+  animation: fadeSlideLeft 0.5s ease forwards;
+}
+
+.fade-slide-right {
+  animation: fadeSlideRight 0.5s ease forwards;
+}
+
+/* Keyframes */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
