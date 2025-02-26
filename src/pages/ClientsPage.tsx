@@ -24,6 +24,36 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [clientHasAccount, setClientHasAccount] = useState(false);
+
+  useEffect(() => {
+    // Check if client already has an account when modal opens
+    const checkClientAccount = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('Clients')
+          .select('auth_id')
+          .eq('id', clientId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (data && data.auth_id) {
+          setClientHasAccount(true);
+          setError("This client already has an account. Please use a different client.");
+        } else {
+          setClientHasAccount(false);
+          setError(null);
+        }
+      } catch (err) {
+        console.error("Error checking client account:", err);
+      }
+    };
+
+    if (isOpen) {
+      checkClientAccount();
+    }
+  }, [isOpen, clientId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,10 +253,25 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
                       </div>
                     )}
 
+                    {clientHasAccount && (
+                      <div className="rounded-md bg-red-50 p-4">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm text-red-700">This client already has an account. Please use a different client.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mt-6">
                       <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || clientHasAccount}
                         className="flex w-full justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {loading ? (
@@ -402,6 +447,11 @@ const ClientsPage: React.FC = () => {
                           <tr key={client.id}>
                             <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                               {client.Name}
+                              {client.auth_id && (
+                                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Account Active
+                                </span>
+                              )}
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                               <button 
@@ -409,9 +459,15 @@ const ClientsPage: React.FC = () => {
                                   setSelectedClient(client);
                                   setIsModalOpen(true);
                                 }}
-                                className="inline-flex items-center px-2 py-1 text-xs border border-blue-600 text-blue-600 hover:bg-blue-50 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                                disabled={!!client.auth_id}
+                                className={`inline-flex items-center px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 ${
+                                  client.auth_id 
+                                    ? 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed' 
+                                    : 'border-blue-600 text-blue-600 hover:bg-blue-50 focus:ring-blue-500'
+                                }`}
+                                title={client.auth_id ? 'Client already has an account' : 'Create account for this client'}
                               >
-                                Create Account
+                                {client.auth_id ? 'Account Exists' : 'Create Account'}
                               </button>
                             </td>
                           </tr>
