@@ -19,6 +19,7 @@ interface Document {
   'Contact No': string | null;
   'Marital Status': string | null;
   created_at: string;
+  file_path?: string;
 }
 
 interface ClientWithDocs extends Client {
@@ -52,8 +53,9 @@ const DocumentsPage: React.FC = () => {
     file: null
   });
   const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [viewingDocId, setViewingDocId] = useState<number | null>(null);
   const [dragActive, setDragActive] = useState<boolean>(false);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   useEffect(() => {
     fetchClientsWithDocs();
@@ -186,13 +188,19 @@ const DocumentsPage: React.FC = () => {
     try {
       // 1. Upload file to storage bucket
       const fileExt = formData.file.name.split('.').pop();
-      const fileName = `${selectedClient.Name}/${Date.now()}.${fileExt}`;
+      const timestamp = Date.now();
+      const fileName = `${timestamp}.${fileExt}`;
+      const filePath = `${selectedClient.Name}/${fileName}`;
+      
+      console.log('Uploading file to path:', filePath);
       
       const { error: uploadError } = await supabase.storage
         .from('Clients Document')
-        .upload(fileName, formData.file);
+        .upload(filePath, formData.file);
 
       if (uploadError) throw uploadError;
+      
+      console.log('File uploaded successfully to:', filePath);
 
       // 2. Save document metadata to Documents table
       const { error: dbError } = await supabase
@@ -205,6 +213,7 @@ const DocumentsPage: React.FC = () => {
             Email: formData.Email || null,
             'Contact No': formData['Contact No'] || null,
             'Marital Status': formData['Marital Status'] || null,
+            file_path: filePath
           }
         ]);
 
@@ -231,6 +240,81 @@ const DocumentsPage: React.FC = () => {
     setUploadStatus('');
     setDragActive(false);
     setIsUploading(false);
+  };
+
+  const getDocumentUrl = async (file_path: string) => {
+    try {
+      const { data } = await supabase.storage
+        .from('Clients Document')
+        .getPublicUrl(file_path);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error getting document URL:', error);
+      return null;
+    }
+  };
+
+  const handleViewDocument = async (doc: Document) => {
+    try {
+      setViewingDocId(doc.id);
+      
+      console.log('Document object:', doc);
+      
+      if (doc.file_path) {
+        // If we have a file_path, use it directly
+        console.log('Using stored file path:', doc.file_path);
+        const url = await getDocumentUrl(doc.file_path);
+        setViewingDocId(null);
+        
+        if (url) {
+          window.open(url, '_blank');
+        } else {
+          alert('Could not retrieve document URL.');
+        }
+      } else {
+        // For existing documents without file_path, try to find files in the client's folder
+        console.log('No file_path, trying to find files in folder:', doc.Name);
+        
+        try {
+          // List files in the client's folder
+          const { data: files, error } = await supabase.storage
+            .from('Clients Document')
+            .list(doc.Name);
+            
+          if (error) {
+            throw error;
+          }
+          
+          console.log('Files found in folder:', files);
+          
+          if (files && files.length > 0) {
+            // Use the first file in the folder
+            const filePath = `${doc.Name}/${files[0].name}`;
+            console.log('Using first file found:', filePath);
+            
+            const url = await getDocumentUrl(filePath);
+            if (url) {
+              // Open the PDF
+              window.open(url, '_blank');
+            } else {
+              alert('Could not retrieve document URL.');
+            }
+          } else {
+            alert('No files found for this document. Please upload a new document.');
+          }
+        } catch (err) {
+          console.error('Error finding files:', err);
+          alert('Error finding files for this document. Please upload a new document.');
+        }
+        
+        setViewingDocId(null);
+      }
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      setViewingDocId(null);
+      alert('Error viewing document. Please try again.');
+    }
   };
 
   if (loading) {
@@ -286,10 +370,27 @@ const DocumentsPage: React.FC = () => {
             
             <div className="text-gray-500 text-sm mb-4">
               {client.documents && client.documents.length > 0 ? (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {client.documents.map((doc, index) => (
-                    <div key={doc.id || index} className="flex items-center">
-                      <span className="truncate">{doc.Name}</span>
+                    <div key={doc.id || index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <span className="truncate text-gray-700">{doc.Name}</span>
+                      <button
+                        onClick={() => handleViewDocument(doc)}
+                        className="ml-2 text-blue-500 hover:text-blue-600 text-xs font-medium px-2 py-1 border border-blue-500 rounded hover:bg-blue-50 flex items-center"
+                        disabled={viewingDocId === doc.id}
+                      >
+                        {viewingDocId === doc.id ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Loading...
+                          </>
+                        ) : (
+                          'View PDF'
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -536,8 +637,8 @@ const DocumentsPage: React.FC = () => {
                         type="submit"
                         disabled={isUploading}
                         className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
-                          isUploading ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                        isUploading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                       >
                         {isUploading ? (
                           <div className="flex items-center justify-center">

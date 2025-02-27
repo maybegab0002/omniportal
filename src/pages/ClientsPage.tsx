@@ -112,7 +112,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
         setSuccess(false);
         setEmail('');
         setPassword('');
-      }, 2000);
+      }, 3000); // Increased from 2000 to 3000ms
     } catch (err: any) {
       console.error("Account creation error:", err);
       setError(err.message);
@@ -290,34 +290,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
                   </form>
                 )}
                 
-                {success && (
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          // Force login without email confirmation (for development only)
-                          const { data, error } = await supabase.auth.signInWithPassword({
-                            email,
-                            password,
-                          });
-                          
-                          if (error) throw error;
-                          
-                          if (data.user) {
-                            alert("Logged in successfully! Redirecting to client dashboard...");
-                            window.location.href = "/omniportal/client-dashboard";
-                          }
-                        } catch (err: any) {
-                          alert(`Login failed: ${err.message}`);
-                        }
-                      }}
-                      className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                    >
-                      Test Login Now (Dev Only)
-                    </button>
-                  </div>
-                )}
+                {/* Success message removed to avoid duplication */}
               </Dialog.Panel>
             </Transition.Child>
           </div>
