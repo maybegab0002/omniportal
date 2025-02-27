@@ -10,45 +10,21 @@ interface Client {
   id: number;
   Name: string;
   Email: string;
-  auth_id: string;
-}
-
-interface Document {
-  id: number;
-  Name: string;
-  'TIN ID': string;
-  Email: string;
-  'Contact No': string;
-  'Marital Status': string;
-  created_at: string;
-  file_url?: string;
+  Phone: string;
+  Address: string;
+  'Date Joined': string;
 }
 
 interface Balance {
   id: number;
-  Name: string;
-  Balance: number;
   Amount: number;
   'Months Paid': string;
-}
-
-// New Ticket interface
-interface Ticket {
-  id?: number;
-  client_id: number;
-  client_name: string;
-  subject: string;
-  description: string;
-  status?: string;
-  priority?: string;
-  created_at?: string;
 }
 
 // Ticket Submission Modal Props
 interface TicketSubmissionModalProps {
   isOpen: boolean;
   closeModal: () => void;
-  clientId: number;
   clientName: string;
 }
 
@@ -56,7 +32,6 @@ interface TicketSubmissionModalProps {
 const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({ 
   isOpen, 
   closeModal, 
-  clientId,
   clientName
 }) => {
   const [subject, setSubject] = useState('');
@@ -72,7 +47,7 @@ const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({
 
     try {
       // Create new ticket in Supabase
-      const { data, error: ticketError } = await supabase
+      const { error: ticketError } = await supabase
         .from('Tickets')
         .insert([
           {
@@ -251,7 +226,6 @@ const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({
 const ClientDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [balanceData, setBalanceData] = useState<Balance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -284,16 +258,6 @@ const ClientDashboardPage: React.FC = () => {
         
         setClient(clientData);
         
-        // Get client documents
-        const { data: docsData, error: docsError } = await supabase
-          .from('Documents')
-          .select('*')
-          .eq('Name', clientData.Name);
-        
-        if (docsError) throw docsError;
-        
-        setDocuments(docsData || []);
-
         // Get client balance data
         console.log('Fetching balance data for client:', clientData.Name);
         
@@ -364,11 +328,6 @@ const ClientDashboardPage: React.FC = () => {
   };
   
   const handleSignOut = handleLogout;
-  
-  const handleDownloadDocument = async (document: Document) => {
-    // In a real app, you would download the document from storage
-    alert(`Downloading document: ${document.Name}`);
-  };
   
   // Loading state UI
   if (loading) {
@@ -509,9 +468,9 @@ const ClientDashboardPage: React.FC = () => {
                         <p className="text-base text-white font-medium md:text-lg">Current Balance</p>
                       </div>
                       <p className="text-2xl font-bold text-white md:text-3xl">
-                        ${typeof balanceData.Balance === 'number' 
-                          ? balanceData.Balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-                          : balanceData.Balance
+                        ${typeof balanceData.Amount === 'number' 
+                          ? balanceData.Amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+                          : balanceData.Amount
                         }
                       </p>
                     </div>
@@ -673,7 +632,6 @@ const ClientDashboardPage: React.FC = () => {
           <TicketSubmissionModal
             isOpen={isTicketModalOpen}
             closeModal={() => setIsTicketModalOpen(false)}
-            clientId={client.id}
             clientName={client.Name}
           />
         )}
