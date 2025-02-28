@@ -271,7 +271,7 @@ const InventoryPage: React.FC = () => {
   console.log('Filtered properties length:', filteredProperties.length);
 
   const renderLivingWaterTable = (data: LivingWaterProperty[]) => (
-    <div className="overflow-x-auto bg-white rounded-lg shadow inventory-table-container" style={{ overflowX: 'scroll', position: 'relative' }}>
+    <div className="bg-white rounded-lg shadow inventory-table-container" style={{ position: 'relative', overflowX: 'hidden', marginTop: '16px' }}>
       <div className="p-4 border-b flex justify-between items-center">
         <span className="text-sm text-gray-500">
           Showing {data.length} properties
@@ -341,7 +341,7 @@ const InventoryPage: React.FC = () => {
   );
 
   const renderHavahillsTable = (data: HavahillsProperty[]) => (
-    <div className="overflow-x-auto bg-white rounded-lg shadow inventory-table-container" style={{ overflowX: 'scroll', position: 'relative' }}>
+    <div className="bg-white rounded-lg shadow inventory-table-container" style={{ position: 'relative', overflowX: 'hidden', marginTop: '16px' }}>
       <div className="p-4 border-b flex justify-between items-center">
         <span className="text-sm text-gray-500">
           Showing {data.length} properties
@@ -476,14 +476,36 @@ const InventoryPage: React.FC = () => {
       // Create a scrollbar container
       const scrollbarContainer = document.createElement('div');
       scrollbarContainer.className = 'top-scrollbar-container';
-      scrollbarContainer.style.position = 'sticky';
-      scrollbarContainer.style.top = '0';
-      scrollbarContainer.style.zIndex = '-1'; // Set to negative value to place it behind everything
+      scrollbarContainer.style.position = 'absolute';
+      scrollbarContainer.style.top = '-16px';
+      scrollbarContainer.style.left = '0';
+      scrollbarContainer.style.zIndex = '10'; 
       scrollbarContainer.style.width = '100%';
-      scrollbarContainer.style.height = '12px';
+      scrollbarContainer.style.height = '16px'; 
       scrollbarContainer.style.backgroundColor = '#f9fafb';
       scrollbarContainer.style.overflow = 'auto';
       scrollbarContainer.style.borderBottom = '1px solid #e5e7eb';
+      
+      // Add custom scrollbar styling
+      scrollbarContainer.style.scrollbarWidth = 'thin';
+      scrollbarContainer.style.scrollbarColor = '#6b7280 #f3f4f6';
+      
+      // For Webkit browsers (Chrome, Safari, Edge)
+      const styleElement = document.createElement('style');
+      styleElement.setAttribute('data-scrollbar-styles', 'true');
+      styleElement.textContent = `
+        .top-scrollbar-container::-webkit-scrollbar {
+          height: 8px;
+        }
+        .top-scrollbar-container::-webkit-scrollbar-track {
+          background: #f3f4f6;
+        }
+        .top-scrollbar-container::-webkit-scrollbar-thumb {
+          background-color: #6b7280;
+          border-radius: 4px;
+        }
+      `;
+      document.head.appendChild(styleElement);
       
       // Create the scrollbar content
       const scrollbarContent = document.createElement('div');
@@ -541,6 +563,11 @@ const InventoryPage: React.FC = () => {
           const { scrollbar, observer } = result;
           if (scrollbar && scrollbar.parentNode) {
             scrollbar.parentNode.removeChild(scrollbar);
+          }
+          // Remove the style element
+          const styleElement = document.querySelector('style[data-scrollbar-styles]');
+          if (styleElement) {
+            styleElement.parentNode?.removeChild(styleElement);
           }
           observer.disconnect();
         }
