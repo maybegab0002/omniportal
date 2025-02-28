@@ -19,7 +19,6 @@ interface Document {
   'Contact No': string | null;
   'Marital Status': string | null;
   created_at: string;
-  file_path?: string;
 }
 
 interface ClientWithDocs extends Client {
@@ -212,8 +211,7 @@ const DocumentsPage: React.FC = () => {
             'TIN ID': formData['TIN ID'] || null,
             Email: formData.Email || null,
             'Contact No': formData['Contact No'] || null,
-            'Marital Status': formData['Marital Status'] || null,
-            file_path: filePath
+            'Marital Status': formData['Marital Status'] || null
           }
         ]);
 
@@ -242,13 +240,33 @@ const DocumentsPage: React.FC = () => {
     setIsUploading(false);
   };
 
-  const getDocumentUrl = async (file_path: string) => {
+  const getDocumentUrl = async (clientName: string) => {
     try {
-      const { data } = await supabase.storage
+      // List files in the client's folder
+      const { data: files, error } = await supabase.storage
         .from('Clients Document')
-        .getPublicUrl(file_path);
+        .list(clientName);
+        
+      if (error) {
+        throw error;
+      }
+      
+      console.log('Files found in folder:', files);
+      
+      if (files && files.length > 0) {
+        // Use the first file in the folder
+        const filePath = `${clientName}/${files[0].name}`;
+        console.log('Using first file found:', filePath);
+        
+        const { data } = await supabase.storage
+          .from('Clients Document')
+          .getPublicUrl(filePath);
 
-      return data.publicUrl;
+        return data.publicUrl;
+      } else {
+        console.error('No files found for this client.');
+        return null;
+      }
     } catch (error) {
       console.error('Error getting document URL:', error);
       return null;
@@ -261,54 +279,13 @@ const DocumentsPage: React.FC = () => {
       
       console.log('Document object:', doc);
       
-      if (doc.file_path) {
-        // If we have a file_path, use it directly
-        console.log('Using stored file path:', doc.file_path);
-        const url = await getDocumentUrl(doc.file_path);
-        setViewingDocId(null);
-        
-        if (url) {
-          window.open(url, '_blank');
-        } else {
-          alert('Could not retrieve document URL.');
-        }
+      const url = await getDocumentUrl(doc.Name);
+      setViewingDocId(null);
+      
+      if (url) {
+        window.open(url, '_blank');
       } else {
-        // For existing documents without file_path, try to find files in the client's folder
-        console.log('No file_path, trying to find files in folder:', doc.Name);
-        
-        try {
-          // List files in the client's folder
-          const { data: files, error } = await supabase.storage
-            .from('Clients Document')
-            .list(doc.Name);
-            
-          if (error) {
-            throw error;
-          }
-          
-          console.log('Files found in folder:', files);
-          
-          if (files && files.length > 0) {
-            // Use the first file in the folder
-            const filePath = `${doc.Name}/${files[0].name}`;
-            console.log('Using first file found:', filePath);
-            
-            const url = await getDocumentUrl(filePath);
-            if (url) {
-              // Open the PDF
-              window.open(url, '_blank');
-            } else {
-              alert('Could not retrieve document URL.');
-            }
-          } else {
-            alert('No files found for this document. Please upload a new document.');
-          }
-        } catch (err) {
-          console.error('Error finding files:', err);
-          alert('Error finding files for this document. Please upload a new document.');
-        }
-        
-        setViewingDocId(null);
+        alert('Could not retrieve document URL.');
       }
     } catch (error) {
       console.error('Error viewing document:', error);
