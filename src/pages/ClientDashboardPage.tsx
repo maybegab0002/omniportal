@@ -2,7 +2,7 @@ import React, { useEffect, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
-import { UserCircleIcon, BellIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, BellIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 
 // Define types
@@ -19,6 +19,7 @@ interface Balance {
   id: number;
   Amount: number;
   'Months Paid': string;
+  Balance: number;
 }
 
 // Ticket Submission Modal Props
@@ -223,6 +224,299 @@ const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({
   );
 };
 
+// Payment Receipt Modal Props
+interface PaymentReceiptModalProps {
+  isOpen: boolean;
+  closeModal: () => void;
+  clientName: string;
+}
+
+// Payment Receipt Modal Component
+const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({ 
+  isOpen, 
+  closeModal, 
+  clientName
+}) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [description, setDescription] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Clear form when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setFile(null);
+      setDescription('');
+      setError(null);
+      setSuccess(false);
+      setPreviewUrl(null);
+    }
+  }, [isOpen]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      
+      // Check file type
+      if (!selectedFile.type.includes('image/') && !selectedFile.type.includes('application/pdf')) {
+        setError('Please upload an image or PDF file');
+        setFile(null);
+        return;
+      }
+      
+      // Check file size (max 5MB)
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB');
+        setFile(null);
+        return;
+      }
+      
+      setFile(selectedFile);
+      setError(null);
+      
+      // Create preview for images
+      if (selectedFile.type.includes('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setPreviewUrl(reader.result as string);
+        };
+        reader.readAsDataURL(selectedFile);
+      } else {
+        // For PDFs, just show an icon or text
+        setPreviewUrl(null);
+      }
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!file) {
+        throw new Error('Please select a receipt file to upload');
+      }
+
+      // 1. Upload file to storage bucket
+      const fileExt = file.name.split('.').pop();
+      const timestamp = Date.now();
+      const fileName = `${timestamp}.${fileExt}`;
+      const filePath = `${clientName}/${fileName}`;
+      
+      console.log('Uploading payment receipt to path:', filePath);
+      
+      const { error: uploadError } = await supabase.storage
+        .from('Payment Receipt')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+      
+      console.log('Payment receipt uploaded successfully to:', filePath);
+
+      // 2. Save payment metadata to Payments table
+      const { error: dbError } = await supabase
+        .from('Payments')
+        .insert([
+          {
+            client_name: clientName,
+            description: description || null,
+            receipt_path: filePath,
+            status: 'pending', // Initial status, admin will verify
+            created_at: new Date().toISOString()
+          }
+        ]);
+
+      if (dbError) throw dbError;
+
+      setSuccess(true);
+      // Reset form after successful submission
+      setTimeout(() => {
+        closeModal();
+        setSuccess(false);
+        setFile(null);
+        setDescription('');
+        setPreviewUrl(null);
+      }, 3000);
+    } catch (err: any) {
+      console.error("Payment submission error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-10" onClose={closeModal}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all modal-scrollbar">
+                <div className="absolute top-0 right-0 pt-6 pr-6">
+                  <button
+                    onClick={closeModal}
+                    className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    <span className="sr-only">Close</span>
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                <Dialog.Title
+                  as="h3"
+                  className="text-xl font-semibold leading-6 text-gray-900"
+                >
+                  Upload Payment Receipt
+                </Dialog.Title>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Please upload your payment receipt and provide the payment details.
+                  </p>
+                </div>
+
+                {success ? (
+                  <div className="mt-6">
+                    <div className="rounded-lg bg-green-50 p-6 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                        <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      </div>
+                      <p className="mt-4 text-lg font-semibold text-green-800">Payment receipt submitted successfully!</p>
+                      <p className="mt-2 text-sm text-green-700">Our team will verify your payment shortly.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+                    <div className="space-y-6 bg-white">
+                      {/* File Upload Area */}
+                      <div>
+                        <label className="block text-sm font-medium leading-6 text-gray-900 mb-2">
+                          Payment Receipt
+                        </label>
+                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10">
+                          <div className="text-center">
+                            {previewUrl ? (
+                              <div className="mb-4">
+                                <img src={previewUrl} alt="Receipt preview" className="mx-auto h-32 w-auto object-contain" />
+                              </div>
+                            ) : (
+                              <DocumentArrowUpIcon className="mx-auto h-12 w-12 text-gray-300" />
+                            )}
+                            
+                            <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                              <label
+                                htmlFor="file-upload"
+                                className="relative cursor-pointer rounded-md bg-white font-semibold text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 hover:text-blue-500"
+                              >
+                                <span>Upload a file</span>
+                                <input 
+                                  id="file-upload" 
+                                  name="file-upload" 
+                                  type="file" 
+                                  className="sr-only"
+                                  onChange={handleFileChange}
+                                  accept="image/*,application/pdf"
+                                />
+                              </label>
+                              <p className="pl-1">or drag and drop</p>
+                            </div>
+                            <p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF or PDF up to 5MB</p>
+                            {file && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                Selected: {file.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-900">
+                          Description (Optional)
+                        </label>
+                        <div className="mt-2">
+                          <textarea
+                            id="description"
+                            rows={3}
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
+                            placeholder="e.g., Monthly payment for February 2025"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="rounded-md bg-red-50 p-4">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm text-red-700">{error}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-6">
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex w-full justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Uploading...
+                          </>
+                        ) : (
+                          'Send Payment'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
+
 const ClientDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
@@ -234,6 +528,8 @@ const ClientDashboardPage: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   // New state for ticket modal
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  // New state for payment receipt modal
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -420,9 +716,9 @@ const ClientDashboardPage: React.FC = () => {
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {notifications.map(notification => (
-                        <div key={notification.id} className="px-4 py-3 border-b hover:bg-gray-50 transition">
-                          <p className="text-sm text-gray-800">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
+                        <div key={notification.id} className="px-4 py-3 border-b hover:bg-gray-50 transition-colors">
+                          <p className="text-sm text-gray-800 mb-1 md:text-base">{notification.message}</p>
+                          <p className="text-xs text-gray-500">{notification.date}</p>
                         </div>
                       ))}
                     </div>
@@ -452,13 +748,13 @@ const ClientDashboardPage: React.FC = () => {
                 
                 {/* Payment details cards - now with a modern design */}
                 {balanceData === null ? (
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-6 text-center">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 text-center">
                     <CreditCardIcon className="h-10 w-10 mx-auto text-white/70 mb-3" />
                     <p className="text-white mb-4 text-sm">No payment details found.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -468,31 +764,29 @@ const ClientDashboardPage: React.FC = () => {
                         <p className="text-base text-white font-medium md:text-lg">Current Balance</p>
                       </div>
                       <p className="text-2xl font-bold text-white md:text-3xl">
-                        ${typeof balanceData.Amount === 'number' 
-                          ? balanceData.Amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-                          : balanceData.Amount
-                        }
+                        ₱{balanceData['Balance'] 
+                          ? Number(balanceData['Balance']).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                          : '0.00'}
                       </p>
                     </div>
                     
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Amount Paid</p>
                       </div>
                       <p className="text-2xl font-bold text-white md:text-3xl">
-                        ${typeof balanceData.Amount === 'number'
-                          ? balanceData.Amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-                          : balanceData.Amount
-                        }
+                        ₱{balanceData['Amount']
+                          ? Number(balanceData['Amount']).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                          : '0.00'}
                       </p>
                     </div>
                     
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl sm:col-span-2 lg:col-span-1">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl sm:col-span-2 lg:col-span-1">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -505,6 +799,7 @@ const ClientDashboardPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+                
               </div>
             </div>
             
@@ -530,52 +825,52 @@ const ClientDashboardPage: React.FC = () => {
               </div>
             </div>
             
-            {/* Notifications section - mobile-first design */}
+            {/* Payment Actions Section */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg">
               <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center md:text-xl">
-                  <BellIcon className="h-5 w-5 mr-2 text-blue-500" />
-                  Recent Notifications
+                  <CreditCardIcon className="h-5 w-5 mr-2 text-blue-500" />
+                  Payment Actions
                 </h2>
               </div>
-              <div className="divide-y divide-gray-100">
-                {notifications.length > 0 ? (
-                  notifications.map((notification) => (
-                    <div key={notification.id} className="p-3 hover:bg-gray-50 transition-colors md:p-4">
-                      <p className="text-sm text-gray-800 mb-1 md:text-base">{notification.message}</p>
-                      <p className="text-xs text-gray-500">{notification.date}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-gray-500 text-sm">
-                    <BellIcon className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-                    No new notifications
+              <div className="p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mb-4 sm:mb-0">
+                    <h3 className="text-base font-medium text-gray-900 mb-1">Submit Payment Receipt</h3>
+                    <p className="text-sm text-gray-500">Upload your payment receipt for verification</p>
                   </div>
-                )}
+                  <button
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
+                  >
+                    <DocumentArrowUpIcon className="h-5 w-5 mr-2" />
+                    Upload Receipt
+                  </button>
+                </div>
               </div>
             </div>
-
-          {/* New Ticket Submission Section */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg">
-            <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center md:text-xl">
-                <TicketIcon className="h-5 w-5 mr-2 text-blue-500" />
-                Support Tickets
-              </h2>
+            
+            {/* New Ticket Submission Section */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg">
+              <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center md:text-xl">
+                  <TicketIcon className="h-5 w-5 mr-2 text-blue-500" />
+                  Support Tickets
+                </h2>
+              </div>
+              <div className="p-4 md:p-6">
+                <p className="text-gray-600 mb-4">Need assistance? Submit a support ticket and our team will help you as soon as possible.</p>
+                <button
+                  onClick={() => setIsTicketModalOpen(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Create New Ticket
+                </button>
+              </div>
             </div>
-            <div className="p-4 md:p-6">
-              <p className="text-gray-600 mb-4">Need assistance? Submit a support ticket and our team will help you as soon as possible.</p>
-              <button
-                onClick={() => setIsTicketModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Create New Ticket
-              </button>
-            </div>
-          </div>
 
           {/* Footer - simplified */}
           <div className="border-t border-gray-200 pt-4 pb-6 mt-auto text-center">
@@ -632,6 +927,15 @@ const ClientDashboardPage: React.FC = () => {
           <TicketSubmissionModal
             isOpen={isTicketModalOpen}
             closeModal={() => setIsTicketModalOpen(false)}
+            clientName={client.Name}
+          />
+        )}
+        
+        {/* Payment Receipt Modal */}
+        {client && (
+          <PaymentReceiptModal
+            isOpen={isPaymentModalOpen}
+            closeModal={() => setIsPaymentModalOpen(false)}
             clientName={client.Name}
           />
         )}
