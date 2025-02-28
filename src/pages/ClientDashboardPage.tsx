@@ -17,9 +17,13 @@ interface Client {
 
 interface Balance {
   id: number;
-  Amount: number;
-  'Months Paid': string;
-  Balance: number;
+  Name: string;
+  Block: string;
+  Lot: string;
+  TCP: number | null;
+  Amount: number | null;
+  'Months Paid': string | null;
+  'Remaining Balance': number | null;
 }
 
 // Ticket Submission Modal Props
@@ -229,26 +233,44 @@ interface PaymentReceiptModalProps {
   isOpen: boolean;
   closeModal: () => void;
   clientName: string;
+  selectedBlock?: string | null;
+  selectedLot?: string | null;
+  balanceRecords: Balance[];
 }
 
 // Payment Receipt Modal Component
 const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({ 
   isOpen, 
   closeModal, 
-  clientName
+  clientName,
+  selectedBlock,
+  selectedLot,
+  balanceRecords
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState<string>('');
+  const [selectedBlockLot, setSelectedBlockLot] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Set initial selected block and lot
+  useEffect(() => {
+    if (selectedBlock && selectedLot) {
+      setSelectedBlockLot(`Block ${selectedBlock} Lot ${selectedLot}`);
+    } else if (balanceRecords.length > 0) {
+      const firstRecord = balanceRecords[0];
+      setSelectedBlockLot(`Block ${firstRecord.Block} Lot ${firstRecord.Lot}`);
+    }
+  }, [selectedBlock, selectedLot, balanceRecords]);
 
   // Clear form when modal is closed
   useEffect(() => {
     if (!isOpen) {
       setFile(null);
       setDescription('');
+      setSelectedBlockLot(null);
       setError(null);
       setSuccess(false);
       setPreviewUrl(null);
@@ -258,35 +280,38 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      
-      // Check file type
-      if (!selectedFile.type.includes('image/') && !selectedFile.type.includes('application/pdf')) {
-        setError('Please upload an image or PDF file');
-        setFile(null);
-        return;
-      }
-      
-      // Check file size (max 5MB)
-      if (selectedFile.size > 5 * 1024 * 1024) {
-        setError('File size must be less than 5MB');
-        setFile(null);
-        return;
-      }
-      
-      setFile(selectedFile);
-      setError(null);
-      
-      // Create preview for images
-      if (selectedFile.type.includes('image/')) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          setPreviewUrl(reader.result as string);
-        };
-        reader.readAsDataURL(selectedFile);
-      } else {
-        // For PDFs, just show an icon or text
-        setPreviewUrl(null);
-      }
+      processFile(selectedFile);
+    }
+  };
+
+  const processFile = (selectedFile: File) => {
+    // Check file type
+    if (!selectedFile.type.includes('image/') && !selectedFile.type.includes('application/pdf')) {
+      setError('Please upload an image or PDF file');
+      setFile(null);
+      return;
+    }
+    
+    // Check file size (max 5MB)
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      setFile(null);
+      return;
+    }
+    
+    setFile(selectedFile);
+    setError(null);
+    
+    // Create preview for images
+    if (selectedFile.type.includes('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(selectedFile);
+    } else {
+      // For PDFs, just show an icon or text
+      setPreviewUrl(null);
     }
   };
 
@@ -316,20 +341,27 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
       
       console.log('Payment receipt uploaded successfully to:', filePath);
 
-      // 2. Save payment metadata to Payments table
+      // 2. Save payment metadata to Payment table
       const { error: dbError } = await supabase
-        .from('Payments')
+        .from('Payment')
         .insert([
           {
-            client_name: clientName,
-            description: description || null,
+            Name: clientName,
+            Description: description || null,
             receipt_path: filePath,
-            status: 'pending', // Initial status, admin will verify
+            Status: 'pending', // Initial status, admin will verify
+            Block: selectedBlockLot ? selectedBlockLot.split(' ')[1] : null,
+            Lot: selectedBlockLot ? selectedBlockLot.split(' ')[3] : null,
             created_at: new Date().toISOString()
           }
         ]);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Error saving payment metadata:', dbError);
+        setError(`Error saving payment information: ${dbError.message}`);
+        setLoading(false);
+        return;
+      }
 
       setSuccess(true);
       // Reset form after successful submission
@@ -338,6 +370,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
         setSuccess(false);
         setFile(null);
         setDescription('');
+        setSelectedBlockLot(null);
         setPreviewUrl(null);
       }, 3000);
     } catch (err: any) {
@@ -393,7 +426,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                 </Dialog.Title>
                 <div className="mt-2">
                   <p className="text-sm text-gray-500">
-                    Please upload your payment receipt and provide the payment details.
+                    Please upload your payment receipt.
                   </p>
                 </div>
 
@@ -412,12 +445,50 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                 ) : (
                   <form onSubmit={handleSubmit} className="mt-6 space-y-6">
                     <div className="space-y-6 bg-white">
+                      {/* Block and Lot Selection */}
+                      <div>
+                        <label className="block text-sm font-medium leading-6 text-gray-900 mb-2">
+                          Select Block and Lot
+                        </label>
+                        <div className="relative">
+                          <select
+                            id="block-lot-selector"
+                            value={selectedBlockLot || ''}
+                            onChange={(e) => setSelectedBlockLot(e.target.value)}
+                            className="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
+                          >
+                            {balanceRecords.map((record, index) => (
+                              <option 
+                                key={index} 
+                                value={`Block ${record.Block} Lot ${record.Lot}`}
+                              >
+                                Block {record.Block} Lot {record.Lot}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* File Upload Area */}
                       <div>
                         <label className="block text-sm font-medium leading-6 text-gray-900 mb-2">
                           Payment Receipt
                         </label>
-                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10">
+                        <div 
+                          className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10"
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                              processFile(e.dataTransfer.files[0]);
+                            }
+                          }}
+                        >
                           <div className="text-center">
                             {previewUrl ? (
                               <div className="mb-4">
@@ -456,17 +527,18 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
 
                       {/* Description */}
                       <div>
-                        <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-900">
-                          Description (Optional)
+                        <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-900 mb-2">
+                          Description
                         </label>
                         <div className="mt-2">
                           <textarea
                             id="description"
-                            rows={3}
+                            rows={4}
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             className="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
-                            placeholder="e.g., Monthly payment for February 2025"
+                            placeholder="Please provide a brief description of your payment"
+                            required
                           />
                         </div>
                       </div>
@@ -520,7 +592,9 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
 const ClientDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
-  const [balanceData, setBalanceData] = useState<Balance | null>(null);
+  const [balanceRecords, setBalanceRecords] = useState<Balance[]>([]);
+  const [selectedLot, setSelectedLot] = useState<string | null>(null);
+  const [selectedBalanceData, setSelectedBalanceData] = useState<Balance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<{id: number, message: string, date: string}[]>([]);
@@ -530,6 +604,39 @@ const ClientDashboardPage: React.FC = () => {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   // New state for payment receipt modal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  // Helper function to check if a value is empty (null, undefined, empty string, or zero)
+  const isEmpty = (value: any): boolean => {
+    if (value === null || value === undefined) return true;
+    if (typeof value === 'string' && value.trim() === '') return true;
+    if (typeof value === 'number' && value === 0) return true;
+    return false;
+  };
+
+  // Helper function to safely parse a numeric value from various formats
+  const safelyParseNumber = (value: any): number | null => {
+    if (isEmpty(value)) return null;
+    
+    try {
+      // If it's already a number, return it
+      if (typeof value === 'number') return value;
+      
+      // If it's a string, try to parse it
+      if (typeof value === 'string') {
+        // Remove any non-numeric characters except decimal point and minus sign
+        const cleanedValue = value.replace(/[^\d.-]/g, '');
+        const parsedValue = parseFloat(cleanedValue);
+        return isNaN(parsedValue) ? null : parsedValue;
+      }
+      
+      // For other types, try to convert to number
+      const numValue = Number(value);
+      return isNaN(numValue) ? null : numValue;
+    } catch (e) {
+      console.error('Error parsing number:', e);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -559,40 +666,73 @@ const ClientDashboardPage: React.FC = () => {
         
         try {
           // Get all records from the Balance table
-          const { data: balanceRecords, error: balanceError } = await supabase
+          const { data: allBalanceRecords, error: balanceError } = await supabase
             .from('Balance')
             .select('*');
             
-          console.log('All balance records:', balanceRecords);
+          console.log('All balance records:', allBalanceRecords);
           
           if (balanceError) {
             console.error('Error fetching balance data:', balanceError);
-          } else if (balanceRecords && balanceRecords.length > 0) {
-            // Find the record that matches the client's name
+          } else if (allBalanceRecords && allBalanceRecords.length > 0) {
+            console.log('Raw balance records:', allBalanceRecords);
+            
+            // Find all records that match the client's name
             // First try exact match (case insensitive)
-            let matchedRecord = balanceRecords.find(record => 
+            let matchedRecords = allBalanceRecords.filter(record => 
               record.Name && record.Name.toLowerCase() === clientData.Name.toLowerCase()
             );
             
-            console.log('Exact match found:', matchedRecord);
+            console.log('Exact matches found:', matchedRecords);
+            console.log('Client name to match:', clientData.Name);
             
-            // If no exact match, try partial match
-            if (!matchedRecord) {
-              console.log('No exact match found, trying partial match');
-              matchedRecord = balanceRecords.find(record => 
+            // If no exact matches, try partial matches
+            if (matchedRecords.length === 0) {
+              console.log('No exact matches found, trying partial matches');
+              matchedRecords = allBalanceRecords.filter(record => 
                 record.Name && 
                 (record.Name.toLowerCase().includes(clientData.Name.toLowerCase()) || 
                  clientData.Name.toLowerCase().includes(record.Name.toLowerCase()))
               );
               
-              console.log('Partial match found:', matchedRecord);
+              console.log('Partial matches found:', matchedRecords);
             }
             
-            if (matchedRecord) {
-              setBalanceData(matchedRecord);
-              console.log('Successfully set balance data:', matchedRecord);
+            if (matchedRecords.length > 0) {
+              // Log each record before processing
+              matchedRecords.forEach((record, index) => {
+                console.log(`Record ${index} before processing:`, record);
+                console.log(`Record ${index} TCP type:`, typeof record.TCP, 'Value:', record.TCP);
+                console.log(`Record ${index} Amount type:`, typeof record.Amount, 'Value:', record.Amount);
+                console.log(`Record ${index} Remaining Balance type:`, typeof record['Remaining Balance'], 'Value:', record['Remaining Balance']);
+              });
+              
+              // Ensure all numeric fields are properly converted
+              const processedRecords = matchedRecords.map(record => {
+                const processed = {
+                  ...record,
+                  Block: String(record.Block),
+                  Lot: String(record.Lot),
+                  TCP: safelyParseNumber(record.TCP),
+                  Amount: safelyParseNumber(record.Amount),
+                  'Remaining Balance': safelyParseNumber(record['Remaining Balance'])
+                };
+                console.log('Record after processing:', processed);
+                return processed;
+              });
+              
+              console.log('Processed records:', processedRecords);
+              setBalanceRecords(processedRecords);
+              
+              // Set the first record as the default selected
+              const firstLot = `Block ${processedRecords[0].Block} Lot ${processedRecords[0].Lot}`;
+              console.log('Setting default selected lot to:', firstLot);
+              setSelectedLot(firstLot);
+              setSelectedBalanceData(processedRecords[0]);
+              
+              console.log('Successfully set balance data:', processedRecords);
             } else {
-              console.log('No matching balance record found for client:', clientData.Name);
+              console.log('No matching balance records found for client:', clientData.Name);
             }
           } else {
             console.log('No records found in Balance table');
@@ -625,6 +765,46 @@ const ClientDashboardPage: React.FC = () => {
   
   const handleSignOut = handleLogout;
   
+  // Handle lot selection change
+  const handleLotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedValue = e.target.value;
+    setSelectedLot(selectedValue);
+    
+    console.log('Selected value:', selectedValue);
+    console.log('All balance records:', balanceRecords);
+    
+    // Find the balance record that matches the selected lot
+    const selectedOption = selectedValue.match(/Block (\d+) Lot (\d+)/);
+    
+    if (selectedOption) {
+      const [_, block, lot] = selectedOption;
+      console.log(`Looking for Block: ${block}, Lot: ${lot}`);
+      
+      // Find the exact matching record by comparing as strings to ensure exact matches
+      const matchedRecord = balanceRecords.find(record => 
+        String(record.Block) === String(block) && String(record.Lot) === String(lot)
+      );
+      
+      console.log('Matched record:', matchedRecord);
+      
+      if (matchedRecord) {
+        // Log the data types to debug NaN issues
+        console.log('TCP type:', typeof matchedRecord.TCP, 'Value:', matchedRecord.TCP);
+        console.log('Amount type:', typeof matchedRecord.Amount, 'Value:', matchedRecord.Amount);
+        console.log('Remaining Balance type:', typeof matchedRecord['Remaining Balance'], 'Value:', matchedRecord['Remaining Balance']);
+        
+        // Create a processed copy with properly handled numeric values
+        const processedRecord = {
+          ...matchedRecord,
+          // Keep the original values but ensure they're properly processed when displayed
+        };
+        
+        console.log('Setting selected balance data to:', processedRecord);
+        setSelectedBalanceData(processedRecord);
+      }
+    }
+  };
+  
   // Loading state UI
   if (loading) {
     return (
@@ -656,10 +836,10 @@ const ClientDashboardPage: React.FC = () => {
             <div className="flex justify-center">
               <button 
                 onClick={() => window.location.reload()} 
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 014 3.7M4.031 9.865a8.25 8.25 0 014 3.7l3.181-3.182m0-4.991v4.99" />
                 </svg>
                 Try Again
               </button>
@@ -746,14 +926,95 @@ const ClientDashboardPage: React.FC = () => {
                 <h1 className="text-2xl font-bold mb-2 md:text-3xl">Welcome, {client?.Name}</h1>
                 <p className="text-blue-100 mb-5 text-sm md:text-base">Here's your current payment information</p>
                 
+                {/* Lot selector dropdown - only show if there are multiple lots */}
+                {balanceRecords.length > 1 && (
+                  <div className="mb-6">
+                    <label htmlFor="lot-selector" className="block mb-2 text-lg font-medium text-white items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"></path>
+                      </svg>
+                      Select Block and Lot
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="lot-selector"
+                        value={selectedLot || ''}
+                        onChange={handleLotChange}
+                        className="w-full md:w-auto appearance-none px-4 py-3 bg-gradient-to-r from-blue-800 to-blue-700 text-white text-lg font-medium rounded-lg border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50 pr-10 transition-all duration-300 hover:shadow-xl hover:border-white/50"
+                        style={{ color: 'white', backgroundColor: '#1e40af' }}
+                      >
+                        {balanceRecords.map((record, index) => (
+                          <option 
+                            key={index} 
+                            value={`Block ${record.Block} Lot ${record.Lot}`}
+                          >
+                            Block {record.Block} Lot {record.Lot}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                        <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Payment details cards - now with a modern design */}
-                {balanceData === null ? (
+                {selectedBalanceData === null ? (
                   <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 text-center">
                     <CreditCardIcon className="h-10 w-10 mx-auto text-white/70 mb-3" />
                     <p className="text-white mb-4 text-sm">No payment details found.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Property Details Card */}
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl sm:col-span-2 lg:col-span-3 mb-4">
+                      <div className="flex items-center mb-3">
+                        <div className="bg-white/30 rounded-full p-2 mr-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                          </svg>
+                        </div>
+                        <p className="text-base text-white font-medium md:text-lg">Property Details</p>
+                      </div>
+                      <div className="flex flex-wrap justify-between">
+                        <div className="mb-2 mr-4">
+                          <p className="text-sm text-white/70">Block</p>
+                          <p className="text-xl font-bold text-white">{selectedBalanceData.Block}</p>
+                        </div>
+                        <div className="mb-2 mr-4">
+                          <p className="text-sm text-white/70">Lot</p>
+                          <p className="text-xl font-bold text-white">{selectedBalanceData.Lot}</p>
+                        </div>
+                        <div className="mb-2">
+                          <p className="text-sm text-white/70">Total Contract Price (TCP)</p>
+                          <p className="text-xl font-bold text-white">
+                            {(() => {
+                              try {
+                                // Check if the value exists
+                                if (isEmpty(selectedBalanceData.TCP)) {
+                                  return 'N/A';
+                                }
+                                
+                                // Try to convert to number if it's a string
+                                const num = safelyParseNumber(selectedBalanceData.TCP);
+                                if (num === null) {
+                                  return 'N/A';
+                                }
+                                return `₱${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+                              } catch (e) {
+                                console.error('Error formatting TCP:', e);
+                                return 'N/A';
+                              }
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Current Balance Card */}
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
@@ -761,32 +1022,64 @@ const ClientDashboardPage: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
-                        <p className="text-base text-white font-medium md:text-lg">Current Balance</p>
+                        <p className="text-base text-white font-medium md:text-lg">Remaining Balance</p>
                       </div>
                       <p className="text-2xl font-bold text-white md:text-3xl">
-                        ₱{balanceData['Balance'] 
-                          ? Number(balanceData['Balance']).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                          : '0.00'}
+                        {(() => {
+                          try {
+                            // Check if the value exists
+                            if (isEmpty(selectedBalanceData['Remaining Balance'])) {
+                              return 'N/A';
+                            }
+                            
+                            // Try to convert to number if it's a string
+                            const num = safelyParseNumber(selectedBalanceData['Remaining Balance']);
+                            if (num === null) {
+                              return 'N/A';
+                            }
+                            return `₱${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+                          } catch (e) {
+                            console.error('Error formatting Remaining Balance:', e);
+                            return 'N/A';
+                          }
+                        })()}
                       </p>
                     </div>
                     
+                    {/* Amount Paid Card */}
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Amount Paid</p>
                       </div>
                       <p className="text-2xl font-bold text-white md:text-3xl">
-                        ₱{balanceData['Amount']
-                          ? Number(balanceData['Amount']).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                          : '0.00'}
+                        {(() => {
+                          try {
+                            // Check if the value exists
+                            if (isEmpty(selectedBalanceData['Amount'])) {
+                              return 'N/A';
+                            }
+                            
+                            // Try to convert to number if it's a string
+                            const num = safelyParseNumber(selectedBalanceData['Amount']);
+                            if (num === null) {
+                              return 'N/A';
+                            }
+                            return `₱${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+                          } catch (e) {
+                            console.error('Error formatting Amount:', e);
+                            return 'N/A';
+                          }
+                        })()}
                       </p>
                     </div>
                     
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl sm:col-span-2 lg:col-span-1">
+                    {/* Months Paid Card */}
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -795,7 +1088,7 @@ const ClientDashboardPage: React.FC = () => {
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Months Paid</p>
                       </div>
-                      <p className="text-2xl font-bold text-white md:text-3xl">{balanceData['Months Paid'] || 'None'}</p>
+                      <p className="text-lg font-bold text-white md:text-xl">{selectedBalanceData['Months Paid'] || 'None'}</p>
                     </div>
                   </div>
                 )}
@@ -937,6 +1230,9 @@ const ClientDashboardPage: React.FC = () => {
             isOpen={isPaymentModalOpen}
             closeModal={() => setIsPaymentModalOpen(false)}
             clientName={client.Name}
+            selectedBlock={selectedBalanceData?.Block}
+            selectedLot={selectedBalanceData?.Lot}
+            balanceRecords={balanceRecords}
           />
         )}
       </div>
