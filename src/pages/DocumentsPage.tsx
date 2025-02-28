@@ -40,6 +40,11 @@ const DocumentsPage: React.FC = () => {
   const [filteredClients, setFilteredClients] = useState<ClientWithDocs[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortByLastName, setSortByLastName] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [projectOwners, setProjectOwners] = useState<{[key: string]: string[]}>({
+    'Living Water Subdivision': [],
+    'Havahills Estate': []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +66,7 @@ const DocumentsPage: React.FC = () => {
 
   useEffect(() => {
     fetchClientsWithDocs();
+    fetchProjectOwners();
   }, []);
 
   // Process and sort clients
@@ -81,15 +87,35 @@ const DocumentsPage: React.FC = () => {
         : (a.firstName || '').localeCompare(b.firstName || '')
     );
 
-    // Filter based on search query
-    const filtered = searchQuery
-      ? sortedClients.filter(client =>
-          client.Name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      : sortedClients;
+    // Filter based on search query and project
+    const filtered = sortedClients.filter(client => {
+      // Filter by search query
+      const matchesSearch = searchQuery
+        ? client.Name.toLowerCase().includes(searchQuery.toLowerCase())
+        : true;
+      
+      // Filter by project
+      let matchesProject = true;
+      if (selectedProject !== 'all') {
+        const projectOwnersList = projectOwners[selectedProject] || [];
+        
+        // Try a more flexible matching approach
+        matchesProject = projectOwnersList.some(owner => {
+          // Clean and normalize strings for comparison
+          const ownerLower = owner.toLowerCase().trim();
+          const clientLower = client.Name.toLowerCase().trim();
+          
+          // Check for partial matches in either direction
+          return ownerLower.includes(clientLower) || clientLower.includes(ownerLower);
+        });
+      }
+      
+      return matchesSearch && matchesProject;
+    });
 
+    console.log('Filtered clients count:', filtered.length);
     setFilteredClients(filtered);
-  }, [clients, searchQuery, sortByLastName]);
+  }, [clients, searchQuery, sortByLastName, selectedProject, projectOwners]);
 
   const fetchClientsWithDocs = async () => {
     try {
@@ -120,6 +146,53 @@ const DocumentsPage: React.FC = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch owners from project tables
+  const fetchProjectOwners = async () => {
+    try {
+      // Fetch Living Water Subdivision owners
+      const { data: livingWaterData, error: livingWaterError } = await supabase
+        .from('Living Water Subdivision')
+        .select('Owner')
+        .not('Owner', 'is', null)
+        .not('Owner', 'eq', '');  // Skip empty strings
+
+      if (livingWaterError) throw livingWaterError;
+
+      // Fetch Havahills Estate buyers
+      const { data: havahillsData, error: havahillsError } = await supabase
+        .from('Havahills Estate')
+        .select('"Buyers Name"')
+        .not('"Buyers Name"', 'is', null)
+        .not('"Buyers Name"', 'eq', '');  // Skip empty strings
+
+      if (havahillsError) throw havahillsError;
+
+      // Extract unique owner names and clean them
+      const livingWaterOwners = livingWaterData 
+        ? [...new Set(livingWaterData
+            .map(item => item.Owner.trim())
+            .filter(name => name !== ''))]
+        : [];
+        
+      const havahillsBuyers = havahillsData 
+        ? [...new Set(havahillsData
+            .map(item => item['Buyers Name'].trim())
+            .filter(name => name !== ''))]
+        : [];
+
+      console.log('Living Water Owners:', livingWaterOwners);
+      console.log('Havahills Buyers:', havahillsBuyers);
+
+      setProjectOwners({
+        'Living Water Subdivision': livingWaterOwners,
+        'Havahills Estate': havahillsBuyers
+      });
+
+    } catch (err: any) {
+      console.error('Error fetching project owners:', err.message);
     }
   };
 
@@ -338,6 +411,17 @@ const DocumentsPage: React.FC = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
+        
+        {/* Project Filter */}
+        <select
+          value={selectedProject}
+          onChange={(e) => setSelectedProject(e.target.value)}
+          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+        >
+          <option value="all">All Projects</option>
+          <option value="Living Water Subdivision">Living Water Subdivision</option>
+          <option value="Havahills Estate">Havahills Estate</option>
+        </select>
         
         {/* Sort Toggle Button */}
         <button
