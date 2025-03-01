@@ -602,6 +602,9 @@ const ClientDashboardPage: React.FC = () => {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   // New state for payment receipt modal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  // State for client document information
+  const [clientDocument, setClientDocument] = useState<any>(null);
+  const [isLoadingDocument, setIsLoadingDocument] = useState(false);
 
   // Helper function to check if a value is empty (null, undefined, empty string, or zero)
   const isEmpty = (value: any): boolean => {
@@ -756,6 +759,121 @@ const ClientDashboardPage: React.FC = () => {
   };
   
   const handleSignOut = handleLogout;
+  
+  // Function to fetch client document information
+  const fetchClientDocument = async () => {
+    if (!client) return;
+    
+    setIsLoadingDocument(true);
+    try {
+      console.log("Fetching document for client:", client.Name);
+      
+      // Fetch document information from Documents table
+      const { data, error } = await supabase
+        .from('Documents')
+        .select('*')
+        .eq('Name', client.Name);
+      
+      console.log("Document query result:", { data, error });
+      
+      if (error) {
+        console.error('Error fetching document:', error);
+        setClientDocument(null);
+      } else if (data && data.length > 0) {
+        console.log('Document data found:', data[0]);
+        setClientDocument(data[0]);
+      } else {
+        console.log('No document found for client:', client.Name);
+        setClientDocument(null);
+      }
+    } catch (err) {
+      console.error('Error in document fetch:', err);
+      setClientDocument(null);
+    } finally {
+      setIsLoadingDocument(false);
+    }
+  };
+
+  // Function to get document URL from storage
+  const getDocumentUrl = async (clientName: string) => {
+    try {
+      console.log("Getting document URL for client:", clientName);
+      
+      // Sanitize the client name to match the upload format
+      const sanitizedClientName = clientName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+        .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
+      
+      console.log("Sanitized client name:", sanitizedClientName);
+      
+      // List all files in the bucket
+      const { data: files, error } = await supabase.storage
+        .from('Clients Document')
+        .list();
+        
+      if (error) {
+        console.error("Error listing files:", error);
+        throw error;
+      }
+      
+      console.log('All files in bucket:', files);
+      
+      // Find files that match this client's sanitized name pattern
+      const clientFiles = files.filter(file => 
+        file.name.startsWith(sanitizedClientName + '_')
+      );
+      
+      console.log('Files found for client:', clientFiles);
+      
+      if (clientFiles && clientFiles.length > 0) {
+        // Use the first file that matches
+        const filePath = clientFiles[0].name;
+        console.log('Using file:', filePath);
+        
+        const { data } = await supabase.storage
+          .from('Clients Document')
+          .getPublicUrl(filePath);
+
+        console.log("Public URL:", data.publicUrl);
+        return data.publicUrl;
+      } else {
+        console.error('No files found for this client.');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting document URL:', error);
+      return null;
+    }
+  };
+
+  // Function to handle document download
+  const handleViewDocument = async () => {
+    if (!clientDocument) return;
+    
+    try {
+      console.log("Attempting to view document for client:", clientDocument.Name);
+      const url = await getDocumentUrl(clientDocument.Name);
+      
+      if (url) {
+        console.log("Opening document URL:", url);
+        window.open(url, '_blank');
+      } else {
+        console.error("Document URL not found");
+        alert('Document not found. Please contact support.');
+      }
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      alert('Error accessing document. Please try again later.');
+    }
+  };
+
+  // Call fetchClientDocument when client data is available
+  useEffect(() => {
+    if (client) {
+      fetchClientDocument();
+    }
+  }, [client]);
   
   // Handle lot selection change
   const handleLotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1077,6 +1195,70 @@ const ClientDashboardPage: React.FC = () => {
                     <dd className="text-base font-semibold text-gray-900 break-all md:text-lg">{client?.Email || 'N/A'}</dd>
                   </div>
                 </dl>
+              </div>
+            </div>
+            
+            {/* Client Document Information Section */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg">
+              <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center md:text-xl">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  My Document Information
+                </h2>
+              </div>
+              <div className="p-4 md:p-6">
+                {isLoadingDocument ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : clientDocument ? (
+                  <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      {Object.entries(clientDocument)
+                        .filter(([key, value]) => 
+                          key !== 'Name' && 
+                          key !== 'id' && 
+                          key !== 'created_at' &&
+                          value !== null && 
+                          value !== ''
+                        )
+                        .map(([key, value], index) => (
+                          <div key={index} className="bg-gray-50 rounded-lg p-3">
+                            <h3 className="text-sm font-medium text-gray-500">
+                              {key === 'TIN ID' ? 'TIN ID' : 
+                               key === 'Contact No' ? 'Contact Number' : 
+                               key === 'Marital Status' ? 'Marital Status' : 
+                               key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </h3>
+                            <p className="mt-1 text-base text-gray-900">{String(value)}</p>
+                          </div>
+                        ))}
+                    </div>
+                    
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={handleViewDocument}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
+                        disabled={!clientDocument}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        View Document
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-gray-500 mb-2">No document information found</p>
+                    <p className="text-sm text-gray-400">Your document information will appear here once uploaded by an administrator.</p>
+                  </div>
+                )}
               </div>
             </div>
             
