@@ -2,7 +2,7 @@ import React, { useEffect, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
-import { UserCircleIcon, BellIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 
 // Define types
@@ -467,7 +467,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                             ))}
                           </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
                             </svg>
                           </div>
@@ -571,7 +571,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Uploading...
+                            Submitting...
                           </>
                         ) : (
                           'Send Payment'
@@ -597,8 +597,6 @@ const ClientDashboardPage: React.FC = () => {
   const [selectedBalanceData, setSelectedBalanceData] = useState<Balance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<{id: number, message: string, date: string}[]>([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // New state for ticket modal
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
@@ -741,12 +739,6 @@ const ClientDashboardPage: React.FC = () => {
           console.error('Error in balance data fetch:', err);
         }
 
-        // Mock notifications for demo
-        setNotifications([
-          { id: 1, message: 'Your document has been approved', date: '2025-02-25' },
-          { id: 2, message: 'Please upload your latest utility bill', date: '2025-02-24' },
-          { id: 3, message: 'Welcome to Omni Portal!', date: '2025-02-23' }
-        ]);
       } catch (err: any) {
         console.error('Error loading client dashboard:', err);
         setError(err.message);
@@ -876,36 +868,6 @@ const ClientDashboardPage: React.FC = () => {
                 </svg>
               </button>
               
-              <div className="relative">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 rounded-full hover:bg-white/10 transition relative"
-                >
-                  <BellIcon className="h-6 w-6 text-white" />
-                  {notifications.length > 0 && (
-                    <span className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
-                      {notifications.length}
-                    </span>
-                  )}
-                </button>
-                
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl overflow-hidden z-20">
-                    <div className="py-2 px-3 bg-gray-50 border-b">
-                      <h3 className="text-sm font-semibold text-gray-800">Notifications</h3>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto">
-                      {notifications.map(notification => (
-                        <div key={notification.id} className="px-4 py-3 border-b hover:bg-gray-50 transition-colors">
-                          <p className="text-sm text-gray-800 mb-1 md:text-base">{notification.message}</p>
-                          <p className="text-xs text-gray-500">{notification.date}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
               <button 
                 onClick={handleSignOut}
                 className="ml-2 p-2 rounded-full hover:bg-white/10 transition"
@@ -953,7 +915,7 @@ const ClientDashboardPage: React.FC = () => {
                         ))}
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
-                        <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
                         </svg>
                       </div>
@@ -1127,23 +1089,22 @@ const ClientDashboardPage: React.FC = () => {
                 </h2>
               </div>
               <div className="p-4 md:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <div className="mb-4 sm:mb-0">
-                    <h3 className="text-base font-medium text-gray-900 mb-1">Submit Payment Receipt</h3>
-                    <p className="text-sm text-gray-500">Upload your payment receipt for verification</p>
-                  </div>
+                <p className="text-gray-600 mb-4">Upload your payment receipt for verification and processing.</p>
+                <div className="flex flex-col items-start">
                   <button
                     onClick={() => setIsPaymentModalOpen(true)}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
+                    className="inline-flex items-center px-4 py-2 bg-gray-400 text-white rounded-md text-sm font-medium cursor-not-allowed opacity-50 transition-colors shadow-sm"
+                    disabled
                   >
                     <DocumentArrowUpIcon className="h-5 w-5 mr-2" />
                     Upload Receipt
                   </button>
+                  <span className="text-xs text-blue-600 font-medium mt-1">Coming Soon!</span>
                 </div>
               </div>
             </div>
             
-            {/* New Ticket Submission Section */}
+            {/* Support Tickets Section */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg">
               <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center md:text-xl">
@@ -1153,15 +1114,19 @@ const ClientDashboardPage: React.FC = () => {
               </div>
               <div className="p-4 md:p-6">
                 <p className="text-gray-600 mb-4">Need assistance? Submit a support ticket and our team will help you as soon as possible.</p>
-                <button
-                  onClick={() => setIsTicketModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Create New Ticket
-                </button>
+                <div className="flex flex-col items-start">
+                  <button
+                    onClick={() => setIsTicketModalOpen(true)}
+                    className="inline-flex items-center px-4 py-2 bg-gray-400 text-white rounded-md text-sm font-medium cursor-not-allowed opacity-50 transition-colors shadow-sm"
+                    disabled
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Create New Ticket
+                  </button>
+                  <span className="text-xs text-blue-600 font-medium mt-1">Coming Soon!</span>
+                </div>
               </div>
             </div>
 
@@ -1192,10 +1157,6 @@ const ClientDashboardPage: React.FC = () => {
                 <a href="#" className="flex items-center p-3 text-gray-700 rounded-xl hover:bg-blue-50 transition-colors">
                   <UserCircleIcon className="h-5 w-5 mr-3 text-blue-600" />
                   Profile
-                </a>
-                <a href="#" className="flex items-center p-3 text-gray-700 rounded-xl hover:bg-blue-50 transition-colors">
-                  <BellIcon className="h-5 w-5 mr-3 text-blue-600" />
-                  Notifications
                 </a>
                 <a href="#" className="flex items-center p-3 text-gray-700 rounded-xl hover:bg-blue-50 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5 mr-3 text-blue-600">
