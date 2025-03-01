@@ -265,7 +265,15 @@ const DocumentsPage: React.FC = () => {
       const fileExt = formData.file.name.split('.').pop();
       const timestamp = Date.now();
       const fileName = `${timestamp}.${fileExt}`;
-      const filePath = `${selectedClient.Name}/${fileName}`;
+      
+      // Sanitize the client name for use in file path
+      // Replace special characters, spaces and slashes with safe alternatives
+      const sanitizedClientName = selectedClient.Name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+        .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
+      
+      const filePath = `${sanitizedClientName}_${fileName}`;
       
       console.log('Uploading file to path:', filePath);
       
@@ -328,21 +336,34 @@ const DocumentsPage: React.FC = () => {
 
   const getDocumentUrl = async (clientName: string) => {
     try {
-      // List files in the client's folder
+      // Sanitize the client name to match the upload format
+      const sanitizedClientName = clientName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+        .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
+      
+      // List all files in the bucket
       const { data: files, error } = await supabase.storage
         .from('Clients Document')
-        .list(clientName);
+        .list();
         
       if (error) {
         throw error;
       }
       
-      console.log('Files found in folder:', files);
+      console.log('All files in bucket:', files);
       
-      if (files && files.length > 0) {
-        // Use the first file in the folder
-        const filePath = `${clientName}/${files[0].name}`;
-        console.log('Using first file found:', filePath);
+      // Find files that match this client's sanitized name pattern
+      const clientFiles = files.filter(file => 
+        file.name.startsWith(sanitizedClientName + '_')
+      );
+      
+      console.log('Files found for client:', clientFiles);
+      
+      if (clientFiles && clientFiles.length > 0) {
+        // Use the first file that matches
+        const filePath = clientFiles[0].name;
+        console.log('Using file:', filePath);
         
         const { data } = await supabase.storage
           .from('Clients Document')
