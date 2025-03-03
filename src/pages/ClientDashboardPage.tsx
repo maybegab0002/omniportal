@@ -2,7 +2,7 @@ import React, { useEffect, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
-import { UserCircleIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon, KeyIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 
 // Define types
@@ -589,6 +589,233 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
   );
 };
 
+// Change Password Modal Props
+interface ChangePasswordModalProps {
+  isOpen: boolean;
+  closeModal: () => void;
+  userId: string;
+  onSuccess: () => void;
+}
+
+// Change Password Modal Component
+const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ 
+  isOpen, 
+  closeModal, 
+  userId,
+  onSuccess
+}) => {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    // Validate passwords
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Update password in Supabase
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) throw updateError;
+
+      // Update the first_login flag in the Clients table
+      const updateData: Record<string, boolean> = {
+        'first_login': false,
+        'first-login': false
+      };
+      
+      console.log('Updating client with data:', updateData);
+      
+      const { error: clientUpdateError } = await supabase
+        .from('Clients')
+        .update(updateData)
+        .eq('auth_id', userId);
+
+      if (clientUpdateError) {
+        console.error('Error updating client first login status:', clientUpdateError);
+        throw clientUpdateError;
+      }
+
+      setSuccess(true);
+      
+      // Close modal after successful password change
+      setTimeout(() => {
+        closeModal();
+        setSuccess(false);
+        setNewPassword('');
+        setConfirmPassword('');
+        onSuccess();
+      }, 3000);
+    } catch (err: any) {
+      console.error("Password change error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-10" onClose={closeModal}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all modal-scrollbar">
+                <Dialog.Title
+                  as="h3"
+                  className="text-xl font-semibold leading-6 text-gray-900"
+                >
+                  Change Your Password
+                </Dialog.Title>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    For security reasons, please change your temporary password to a new password that only you know.
+                  </p>
+                </div>
+
+                {success ? (
+                  <div className="mt-6">
+                    <div className="rounded-lg bg-green-50 p-6 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                        <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      </div>
+                      <p className="mt-4 text-lg font-semibold text-green-800">Password changed successfully!</p>
+                      <p className="mt-2 text-sm text-green-700">You can now use your new password for future logins.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+                    <div className="space-y-6 bg-white">
+                      <div>
+                        <label htmlFor="newPassword" className="block text-sm font-medium leading-6 text-gray-900">
+                          New Password
+                        </label>
+                        <div className="mt-2">
+                          <input
+                            type="password"
+                            id="newPassword"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
+                            placeholder="Enter your new password"
+                            required
+                          />
+                        </div>
+                        <p className="mt-2 text-sm text-gray-500">
+                          Password must be at least 6 characters
+                        </p>
+                      </div>
+
+                      <div>
+                        <label htmlFor="confirmPassword" className="block text-sm font-medium leading-6 text-gray-900">
+                          Confirm Password
+                        </label>
+                        <div className="mt-2">
+                          <input
+                            type="password"
+                            id="confirmPassword"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
+                            placeholder="Confirm your new password"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="rounded-md bg-red-50 p-4">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm text-red-700">{error}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-6 flex justify-between">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                      >
+                        Change Later
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Changing Password...
+                          </>
+                        ) : (
+                          'Change Password'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
+
 const ClientDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
@@ -605,6 +832,9 @@ const ClientDashboardPage: React.FC = () => {
   // State for client document information
   const [clientDocument, setClientDocument] = useState<any>(null);
   const [isLoadingDocument, setIsLoadingDocument] = useState(false);
+  // State for change password modal
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [userId, setUserId] = useState<string>('');
 
   // Helper function to check if a value is empty (null, undefined, empty string, or zero)
   const isEmpty = (value: any): boolean => {
@@ -649,6 +879,9 @@ const ClientDashboardPage: React.FC = () => {
           return;
         }
         
+        // Set the user ID
+        setUserId(data.session.user.id);
+        
         // Get client info using auth_id
         const { data: clientData, error: clientError } = await supabase
           .from('Clients')
@@ -657,10 +890,43 @@ const ClientDashboardPage: React.FC = () => {
           .single();
         
         if (clientError || !clientData) {
+          console.error('Client not found error:', clientError);
           throw new Error('Client not found');
         }
         
+        console.log('Client data retrieved:', clientData);
+        console.log('Client data keys:', Object.keys(clientData));
         setClient(clientData);
+        
+        // Check if this is the client's first login
+        let firstLoginValue = null;
+        
+        // Check for both field names and handle different data types
+        if ('first_login' in clientData) {
+          firstLoginValue = clientData.first_login;
+          console.log('Found first_login field:', firstLoginValue);
+        } 
+        // Check for first-login (hyphen version)
+        else if ('first-login' in clientData) {
+          firstLoginValue = clientData['first-login'];
+          console.log('Found first-login field:', firstLoginValue);
+        }
+        
+        // Determine if this is the first login
+        // If the field doesn't exist or is null/undefined, assume it's the first login
+        // If it's a boolean false, it's not the first login
+        // If it's a string "false", it's not the first login
+        const isFirstTimeLogin = 
+          firstLoginValue === null || 
+          firstLoginValue === undefined || 
+          (firstLoginValue !== false && firstLoginValue !== "false");
+        
+        console.log('Is first time login?', isFirstTimeLogin);
+        
+        // If it's the first login, show the change password modal
+        if (isFirstTimeLogin) {
+          setIsChangePasswordModalOpen(true);
+        }
         
         // Get client balance data
         console.log('Fetching balance data for client:', clientData.Name);
@@ -1131,7 +1397,7 @@ const ClientDashboardPage: React.FC = () => {
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Amount Paid</p>
@@ -1244,7 +1510,7 @@ const ClientDashboardPage: React.FC = () => {
                         disabled={!clientDocument}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         View Document
                       </button>
@@ -1353,6 +1619,13 @@ const ClientDashboardPage: React.FC = () => {
                   <ArrowRightOnRectangleIcon className="h-5 w-5 mr-3" />
                   Sign out
                 </button>
+                <button
+                  onClick={() => setIsChangePasswordModalOpen(true)}
+                  className="flex w-full items-center p-3 text-blue-600 rounded-xl hover:bg-blue-50 transition-colors"
+                >
+                  <KeyIcon className="h-5 w-5 mr-3" />
+                  Change Password
+                </button>
               </nav>
             </div>
           </div>
@@ -1376,6 +1649,16 @@ const ClientDashboardPage: React.FC = () => {
             selectedBlock={selectedBalanceData?.Block}
             selectedLot={selectedBalanceData?.Lot}
             balanceRecords={balanceRecords}
+          />
+        )}
+        
+        {/* Change Password Modal */}
+        {client && (
+          <ChangePasswordModal
+            isOpen={isChangePasswordModalOpen}
+            closeModal={() => setIsChangePasswordModalOpen(false)}
+            userId={userId}
+            onSuccess={() => setIsChangePasswordModalOpen(false)}
           />
         )}
       </div>
