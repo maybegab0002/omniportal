@@ -1,8 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { 
+  XMarkIcon, 
+  UserIcon, 
+  ClockIcon, 
+  TagIcon, 
+  FolderIcon,
+  DocumentTextIcon,
+  PaperClipIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  ArrowPathIcon,
+  ChatBubbleLeftRightIcon
+} from '@heroicons/react/24/outline';
+
+// Add custom scrollbar styles
+import './ticketStyles.css';
 
 // Define Ticket interface based on your Supabase table structure
 interface Ticket {
@@ -13,10 +28,14 @@ interface Ticket {
   Status: string;
   Priority: string;
   Assigned: string | null;
+  Resolution: string | null;
+  Attachment: string | null;
+  Category: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
-const TicketPage: React.FC = () => {
+function TicketPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +48,14 @@ const TicketPage: React.FC = () => {
     const fetchTickets = async () => {
       try {
         setLoading(true);
+        
+        // Check if supabase client is properly initialized
+        if (!supabase) {
+          throw new Error('Supabase client is not initialized');
+        }
+        
+        console.log('Fetching tickets with filter:', statusFilter);
+        
         let query = supabase.from('Tickets').select('*');
         
         // Apply status filter if not 'all'
@@ -41,12 +68,21 @@ const TicketPage: React.FC = () => {
         
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase query error:', error);
+          throw error;
+        }
         
+        console.log('Tickets fetched successfully:', data);
         setTickets(data || []);
       } catch (err: any) {
         console.error('Error fetching tickets:', err);
-        setError(err.message);
+        // Provide more detailed error message
+        if (err.message === 'Failed to fetch') {
+          setError('Network error: Could not connect to Supabase. Please check your internet connection and Supabase configuration.');
+        } else {
+          setError(`${err.message || 'Unknown error'}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -56,23 +92,23 @@ const TicketPage: React.FC = () => {
   }, [statusFilter]);
 
   // Function to update ticket status
-  const updateTicketStatus = async (ticketId: number, newStatus: string) => {
+  const updateTicketStatus = async (ticketId: number, status: string) => {
     try {
       const { error } = await supabase
         .from('Tickets')
-        .update({ Status: newStatus })
+        .update({ Status: status })
         .eq('id', ticketId);
 
       if (error) throw error;
 
       // Update local state
       setTickets(tickets.map(ticket => 
-        ticket.id === ticketId ? { ...ticket, Status: newStatus } : ticket
+        ticket.id === ticketId ? { ...ticket, Status: status } : ticket
       ));
       
-      // Close modal if open
+      // Update selected ticket if it's the one being modified
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket({ ...selectedTicket, Status: newStatus });
+        setSelectedTicket({ ...selectedTicket, Status: status });
       }
     } catch (err: any) {
       console.error('Error updating ticket status:', err);
@@ -102,6 +138,31 @@ const TicketPage: React.FC = () => {
     } catch (err: any) {
       console.error('Error assigning ticket:', err);
       alert(`Failed to assign ticket: ${err.message}`);
+    }
+  };
+
+  // Function to update ticket priority
+  const updateTicketPriority = async (ticketId: number, newPriority: string) => {
+    try {
+      const { error } = await supabase
+        .from('Tickets')
+        .update({ Priority: newPriority })
+        .eq('id', ticketId);
+
+      if (error) throw error;
+
+      // Update local state
+      setTickets(tickets.map(ticket => 
+        ticket.id === ticketId ? { ...ticket, Priority: newPriority } : ticket
+      ));
+      
+      // Update selected ticket if it's the one being modified
+      if (selectedTicket?.id === ticketId) {
+        setSelectedTicket({ ...selectedTicket, Priority: newPriority });
+      }
+    } catch (err: any) {
+      console.error('Error updating ticket priority:', err);
+      alert(`Failed to update ticket priority: ${err.message}`);
     }
   };
 
@@ -151,7 +212,7 @@ const TicketPage: React.FC = () => {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-8 bg-white">
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold text-gray-900">Support Tickets</h1>
@@ -276,6 +337,27 @@ const TicketPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Error message with debugging info */}
+      {error && (
+        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <h3 className="text-lg font-medium text-red-800">Error loading tickets</h3>
+          <p className="mt-1 text-sm text-red-700">{error}</p>
+          
+          <div className="mt-3 p-3 bg-white rounded border border-red-100">
+            <h4 className="text-sm font-medium text-gray-700">Debugging Information</h4>
+            <p className="text-xs text-gray-600 mt-1">
+              Supabase URL defined: {import.meta.env.VITE_SUPABASE_URL ? 'Yes' : 'No'}<br />
+              Supabase Key defined: {import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Yes' : 'No'}<br />
+              URL Length: {import.meta.env.VITE_SUPABASE_URL?.length || 0}<br />
+              Key Length: {import.meta.env.VITE_SUPABASE_ANON_KEY?.length || 0}
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Note: If either value shows "No" or has a length of 0, your environment variables are not properly configured.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Ticket Detail Modal */}
       {selectedTicket && (
         <Transition appear show={isTicketModalOpen} as={Fragment}>
@@ -303,8 +385,15 @@ const TicketPage: React.FC = () => {
                   leaveFrom="opacity-100 scale-100"
                   leaveTo="opacity-0 scale-95"
                 >
-                  <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                    <div className="absolute top-0 right-0 pt-4 pr-4">
+                  <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all border border-gray-200">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center"
+                    >
+                      <span className="flex items-center">
+                        <DocumentTextIcon className="h-5 w-5 mr-2 text-blue-500" aria-hidden="true" />
+                        Ticket #{selectedTicket.id}: {selectedTicket.Subject}
+                      </span>
                       <button
                         type="button"
                         className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -313,58 +402,135 @@ const TicketPage: React.FC = () => {
                         <span className="sr-only">Close</span>
                         <XMarkIcon className="h-6 w-6" aria-hidden="true" />
                       </button>
-                    </div>
-                    
-                    <Dialog.Title
-                      as="h3"
-                      className="text-lg font-medium leading-6 text-gray-900 pr-6"
-                    >
-                      Ticket #{selectedTicket.id}: {selectedTicket.Subject}
                     </Dialog.Title>
                     
-                    <div className="mt-4 space-y-6">
-                      <div className="flex flex-wrap gap-4">
-                        <div className="bg-gray-50 px-4 py-2 rounded-md">
-                          <p className="text-xs text-gray-500">Client</p>
+                    <div className="mt-4 space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="bg-gray-50 px-4 py-3 rounded-md shadow-sm hover-card">
+                          <div className="flex items-center mb-1">
+                            <UserIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                            <p className="text-xs text-gray-500">Client</p>
+                          </div>
                           <p className="text-sm font-medium">{selectedTicket.Name}</p>
                         </div>
-                        <div className="bg-gray-50 px-4 py-2 rounded-md">
-                          <p className="text-xs text-gray-500">Status</p>
-                          <p className={`text-sm font-medium ${getStatusBadgeColor(selectedTicket.Status)}`}>
-                            {selectedTicket.Status}
-                          </p>
+                        
+                        <div className="bg-gray-50 px-4 py-3 rounded-md shadow-sm hover-card">
+                          <div className="flex items-center mb-1">
+                            <ArrowPathIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                            <p className="text-xs text-gray-500">Status</p>
+                          </div>
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              selectedTicket.Status === 'new' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                              selectedTicket.Status === 'in_progress' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                              selectedTicket.Status === 'resolved' ? 'bg-green-100 text-green-800 border border-green-200' :
+                              selectedTicket.Status === 'closed' ? 'bg-gray-100 text-gray-800 border border-gray-200' :
+                              'bg-gray-100 text-gray-800 border border-gray-200'
+                            }`}>
+                              {selectedTicket.Status === 'new' && <ExclamationCircleIcon className="h-3 w-3 mr-1" aria-hidden="true" />}
+                              {selectedTicket.Status === 'in_progress' && <ArrowPathIcon className="h-3 w-3 mr-1" aria-hidden="true" />}
+                              {selectedTicket.Status === 'resolved' && <CheckCircleIcon className="h-3 w-3 mr-1" aria-hidden="true" />}
+                              {selectedTicket.Status === 'closed' && <XMarkIcon className="h-3 w-3 mr-1" aria-hidden="true" />}
+                              {selectedTicket.Status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="bg-gray-50 px-4 py-2 rounded-md">
-                          <p className="text-xs text-gray-500">Priority</p>
-                          <p className={`text-sm font-medium ${getPriorityBadgeColor(selectedTicket.Priority)}`}>
-                            {selectedTicket.Priority}
-                          </p>
+                        
+                        <div className="bg-gray-50 px-4 py-3 rounded-md shadow-sm hover-card">
+                          <div className="flex items-center mb-1">
+                            <ExclamationCircleIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                            <p className="text-xs text-gray-500">Priority</p>
+                          </div>
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              selectedTicket.Priority === 'low' ? 'bg-green-100 text-green-800 border border-green-200' :
+                              selectedTicket.Priority === 'medium' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                              selectedTicket.Priority === 'high' ? 'bg-orange-100 text-orange-800 border border-orange-200' :
+                              selectedTicket.Priority === 'urgent' ? 'bg-red-100 text-red-800 border border-red-200' :
+                              'bg-gray-100 text-gray-800 border border-gray-200'
+                            }`}>
+                              {selectedTicket.Priority}
+                            </span>
+                          </div>
                         </div>
-                        <div className="bg-gray-50 px-4 py-2 rounded-md">
-                          <p className="text-xs text-gray-500">Assigned To</p>
+                        
+                        <div className="bg-gray-50 px-4 py-3 rounded-md shadow-sm hover-card">
+                          <div className="flex items-center mb-1">
+                            <UserIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                            <p className="text-xs text-gray-500">Assigned To</p>
+                          </div>
                           <p className="text-sm font-medium">{selectedTicket.Assigned || 'Unassigned'}</p>
                         </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900">Description</h4>
-                        <div className="mt-2 rounded-md bg-gray-50 p-4">
-                          <p className="whitespace-pre-wrap text-sm text-gray-700">{selectedTicket.Description}</p>
+                        
+                        {selectedTicket.Category && (
+                          <div className="bg-gray-50 px-4 py-3 rounded-md shadow-sm hover-card">
+                            <div className="flex items-center mb-1">
+                              <FolderIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                              <p className="text-xs text-gray-500">Category</p>
+                            </div>
+                            <p className="text-sm font-medium">{selectedTicket.Category}</p>
+                          </div>
+                        )}
+                        
+                        <div className="bg-gray-50 px-4 py-3 rounded-md shadow-sm hover-card">
+                          <div className="flex items-center mb-1">
+                            <ClockIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                            <p className="text-xs text-gray-500">Created</p>
+                          </div>
+                          <p className="text-sm font-medium">
+                            {selectedTicket.created_at 
+                              ? new Date(selectedTicket.created_at).toLocaleString() 
+                              : 'Unknown'}
+                          </p>
                         </div>
                       </div>
 
+                      <div className="bg-gray-50 rounded-md p-4 shadow-sm hover-card">
+                        <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                          <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                          Description
+                        </h4>
+                        <div className="mt-2 rounded-md bg-white p-4 shadow-inner border border-gray-100">
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTicket.Description}</p>
+                        </div>
+                      </div>
+                      
+                      {selectedTicket.Attachment && (
+                        <div className="bg-gray-50 rounded-md p-4 shadow-sm hover-card">
+                          <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                            <PaperClipIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                            Attachment
+                          </h4>
+                          <div className="mt-2">
+                            <a 
+                              href={selectedTicket.Attachment} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                            >
+                              <PaperClipIcon className="h-5 w-5 mr-2 text-blue-500" aria-hidden="true" />
+                              View Attachment
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="border-t border-gray-200 pt-4">
-                        <h4 className="text-sm font-medium text-gray-900">Update Ticket</h4>
-                        <div className="mt-2 flex flex-col sm:flex-row gap-4">
+                        <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                          <TagIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                          Update Ticket
+                        </h4>
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label htmlFor="update-status" className="block text-xs text-gray-500">
+                            <label htmlFor="update-status" className="block text-xs text-gray-500 items-center">
+                              <ArrowPathIcon className="h-3.5 w-3.5 text-blue-500 mr-1" aria-hidden="true" />
                               Status
                             </label>
                             <select
                               id="update-status"
                               value={selectedTicket.Status}
                               onChange={(e) => updateTicketStatus(selectedTicket.id, e.target.value)}
-                              className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                             >
                               <option value="new">New</option>
                               <option value="in_progress">In Progress</option>
@@ -374,16 +540,44 @@ const TicketPage: React.FC = () => {
                           </div>
                           
                           <div>
-                            <label htmlFor="assign-to" className="block text-xs text-gray-500">
+                            <label htmlFor="update-priority" className="block text-xs text-gray-500 items-center">
+                              <ExclamationCircleIcon className="h-3.5 w-3.5 text-blue-500 mr-1" aria-hidden="true" />
+                              Priority
+                            </label>
+                            <select
+                              id="update-priority"
+                              value={selectedTicket.Priority}
+                              onChange={(e) => updateTicketPriority(selectedTicket.id, e.target.value)}
+                              className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                              <option value="urgent">Urgent</option>
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="update-assignee" className="block text-xs text-gray-500 items-center">
+                              <UserIcon className="h-3.5 w-3.5 text-blue-500 mr-1" aria-hidden="true" />
                               Assign To
                             </label>
                             <input
                               type="text"
-                              id="assign-to"
-                              value={selectedTicket.Assigned || ''}
-                              onChange={(e) => assignTicket(selectedTicket.id, e.target.value)}
+                              id="update-assignee"
+                              defaultValue={selectedTicket.Assigned || ''}
                               placeholder="Enter name"
-                              className="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="mt-1 block w-full rounded-md border-gray-300 bg-white py-2 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              onBlur={(e) => {
+                                if (e.target.value !== selectedTicket.Assigned) {
+                                  assignTicket(selectedTicket.id, e.target.value);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  assignTicket(selectedTicket.id, e.currentTarget.value);
+                                }
+                              }}
                             />
                           </div>
                         </div>

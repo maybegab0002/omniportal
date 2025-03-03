@@ -28,16 +28,46 @@ interface Balance {
 
 // Ticket Submission Modal Props
 interface TicketSubmissionModalProps {
+  clientName: string;
   isOpen: boolean;
   closeModal: () => void;
-  clientName: string;
+  refreshTickets: () => void;
 }
+
+// Function to fetch client tickets
+const fetchClientTickets = async (clientName: string, supabaseClient: any) => {
+  try {
+    console.log('Fetching tickets for client:', clientName);
+    
+    // Fetch tickets from Tickets table
+    const { data, error } = await supabaseClient
+      .from('Tickets')
+      .select('*')
+      .eq('Name', clientName)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching tickets:', error);
+      return [];
+    } else if (data && data.length > 0) {
+      console.log('Tickets found:', data);
+      return data;
+    } else {
+      console.log('No tickets found for client:', clientName);
+      return [];
+    }
+  } catch (err) {
+    console.error('Error in tickets fetch:', err);
+    return [];
+  }
+};
 
 // Ticket Submission Modal Component
 const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({ 
+  clientName, 
   isOpen, 
   closeModal, 
-  clientName
+  refreshTickets
 }) => {
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
@@ -69,7 +99,8 @@ const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({
       if (ticketError) throw ticketError;
 
       setSuccess(true);
-      // Reset form after successful submission
+      refreshTickets();
+      // Close modal after successful submission
       setTimeout(() => {
         closeModal();
         setSuccess(false);
@@ -364,7 +395,8 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
       }
 
       setSuccess(true);
-      // Reset form after successful submission
+      
+      // Close modal after successful submission
       setTimeout(() => {
         closeModal();
         setSuccess(false);
@@ -835,6 +867,9 @@ const ClientDashboardPage: React.FC = () => {
   // State for change password modal
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [userId, setUserId] = useState<string>('');
+  // State for client tickets
+  const [clientTickets, setClientTickets] = useState<any[]>([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
 
   // Helper function to check if a value is empty (null, undefined, empty string, or zero)
   const isEmpty = (value: any): boolean => {
@@ -1181,6 +1216,30 @@ const ClientDashboardPage: React.FC = () => {
     }
   };
   
+  // Function to fetch client tickets
+  const fetchClientTicketsForComponent = async () => {
+    if (!client) return;
+    
+    setIsLoadingTickets(true);
+    try {
+      const tickets = await fetchClientTickets(client.Name, supabase);
+      setClientTickets(tickets);
+    } catch (err) {
+      console.error('Error fetching tickets:', err);
+      setClientTickets([]);
+    } finally {
+      setIsLoadingTickets(false);
+    }
+  };
+
+  // Call fetchClientTickets when client data is available
+  useEffect(() => {
+    if (client) {
+      fetchClientDocument();
+      fetchClientTicketsForComponent();
+    }
+  }, [client]);
+  
   // Loading state UI
   if (loading) {
     return (
@@ -1202,7 +1261,7 @@ const ClientDashboardPage: React.FC = () => {
       <PageTransition>
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full">
-            <div className="bg-red-100 rounded-full p-3 w-12 h-12 flex items-center justify-center mx-auto mb-4">
+            <div className="bg-red-100 rounded-full p-3 w-12 h-12 flex items-center justify-center text-red-600 mx-auto mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
               </svg>
@@ -1397,7 +1456,7 @@ const ClientDashboardPage: React.FC = () => {
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Amount Paid</p>
@@ -1573,6 +1632,52 @@ const ClientDashboardPage: React.FC = () => {
                     Create New Ticket
                   </button>
                 </div>
+                
+                {/* Client Tickets List */}
+                <div className="mt-4">
+                  <h3 className="text-md font-semibold text-gray-800 mb-3">Your Support Tickets</h3>
+                  
+                  {isLoadingTickets ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    </div>
+                  ) : clientTickets.length > 0 ? (
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                      {clientTickets.map((ticket, index) => (
+                        <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-100 hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-900">{ticket.Subject}</h4>
+                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{ticket.Description}</p>
+                            </div>
+                            <div className="ml-4 flex-shrink-0">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                ${ticket.Status === 'new' ? 'bg-blue-100 text-blue-800' : 
+                                  ticket.Status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' : 
+                                  ticket.Status === 'resolved' ? 'bg-green-100 text-green-800' : 
+                                  'bg-gray-100 text-gray-800'}`}
+                              >
+                                {ticket.Status === 'new' ? 'New' : 
+                                 ticket.Status === 'in_progress' ? 'In Progress' : 
+                                 ticket.Status === 'resolved' ? 'Resolved' : 
+                                 ticket.Status === 'closed' ? 'Closed' : 
+                                 ticket.Status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                      </svg>
+                      <p className="text-gray-500 mb-2">No support tickets found</p>
+                      <p className="text-sm text-gray-400">Your submitted tickets will appear here.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1632,9 +1737,10 @@ const ClientDashboardPage: React.FC = () => {
         {/* Ticket Submission Modal */}
         {client && (
           <TicketSubmissionModal
+            clientName={client.Name}
             isOpen={isTicketModalOpen}
             closeModal={() => setIsTicketModalOpen(false)}
-            clientName={client.Name}
+            refreshTickets={fetchClientTicketsForComponent}
           />
         )}
         
