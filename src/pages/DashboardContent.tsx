@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
+import { supabase } from '../lib/supabaseClient';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -25,6 +26,89 @@ ChartJS.register(
 
 const DashboardContent: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Month');
+  const [availableLots, setAvailableLots] = useState(0);
+  const [soldLots, setSoldLots] = useState(0);
+  const [totalLots, setTotalLots] = useState(0);
+  const [activeAccounts, setActiveAccounts] = useState(0);
+  const [livingWaterStats, setLivingWaterStats] = useState({ available: 0, sold: 0, total: 0 });
+  const [havahillsStats, setHavahillsStats] = useState({ available: 0, sold: 0, total: 0 });
+
+  useEffect(() => {
+    fetchLotData();
+    fetchActiveAccounts();
+  }, []);
+
+  const fetchLotData = async () => {
+    try {
+      // Fetch Living Water Subdivision lots
+      const { data: livingWaterLots, error: livingWaterError } = await supabase
+        .from('Living Water Subdivision')
+        .select('*');
+
+      // Fetch Havahills Estate lots
+      const { data: havahillsLots, error: havahillsError } = await supabase
+        .from('Havahills Estate')
+        .select('*');
+
+      if (livingWaterError) {
+        console.error('Living Water Error:', livingWaterError.message);
+        throw livingWaterError;
+      }
+      if (havahillsError) {
+        console.error('Havahills Error:', havahillsError.message);
+        throw havahillsError;
+      }
+
+      // Living Water Stats
+      const lwAvailable = livingWaterLots?.filter(lot => 
+        lot.Status?.toLowerCase() === 'available'
+      ).length || 0;
+      const lwSold = livingWaterLots?.filter(lot => 
+        lot.Status?.toLowerCase() === 'sold'
+      ).length || 0;
+      const lwTotal = livingWaterLots?.length || 0;
+
+      // Havahills Stats
+      const hhAvailable = havahillsLots?.filter(lot => 
+        lot.Status?.toLowerCase() === 'available'
+      ).length || 0;
+      const hhSold = havahillsLots?.filter(lot => 
+        lot.Status?.toLowerCase() === 'sold'
+      ).length || 0;
+      const hhTotal = havahillsLots?.length || 0;
+
+      setLivingWaterStats({ available: lwAvailable, sold: lwSold, total: lwTotal });
+      setHavahillsStats({ available: hhAvailable, sold: hhSold, total: hhTotal });
+      
+      setAvailableLots(lwAvailable + hhAvailable);
+      setSoldLots(lwSold + hhSold);
+      setTotalLots(lwTotal + hhTotal);
+    } catch (error: any) {
+      console.error('Error fetching lot data:', error?.message || 'Unknown error');
+    }
+  };
+
+  const fetchActiveAccounts = async () => {
+    try {
+      const { data: clients, error } = await supabase
+        .from('Clients')
+        .select('*');
+
+      if (error) {
+        console.error('Clients Error:', error.message);
+        throw error;
+      }
+
+      // Count only clients that have an email
+      const activeCount = clients?.filter(client => 
+        client.Email && client.Email.trim() !== ''
+      ).length || 0;
+
+      setActiveAccounts(activeCount);
+    } catch (error: any) {
+      console.error('Error fetching active accounts:', error?.message || 'Unknown error');
+    }
+  };
 
   // Sample data
   const recentActivities = [
@@ -129,52 +213,75 @@ const DashboardContent: React.FC = () => {
               <div className="flex items-center justify-between mb-2">
                 <div className="bg-blue-50 p-2 rounded-lg">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-green-600">+12%</span>
+                <span className="text-xs font-medium text-blue-600">
+                  {((availableLots / totalLots) * 100).toFixed(1)}% of total
+                </span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900">128</h3>
-              <p className="text-xs text-gray-600">Total Clients</p>
+              <h3 className="text-xl font-bold text-gray-900">{availableLots}</h3>
+              <p className="text-xs text-gray-600">Available Lots</p>
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-gray-500">Living Water: {livingWaterStats.available}</p>
+                <p className="text-xs text-gray-500">Havahills: {havahillsStats.available}</p>
+              </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
               <div className="flex items-center justify-between mb-2">
                 <div className="bg-green-50 p-2 rounded-lg">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-green-600">+5%</span>
+                <span className="text-xs font-medium text-green-600">
+                  {((soldLots / totalLots) * 100).toFixed(1)}% of total
+                </span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900">24</h3>
-              <p className="text-xs text-gray-600">Active Projects</p>
+              <h3 className="text-xl font-bold text-gray-900">{soldLots}</h3>
+              <p className="text-xs text-gray-600">Sold Lots</p>
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-gray-500">Living Water: {livingWaterStats.sold}</p>
+                <p className="text-xs text-gray-500">Havahills: {havahillsStats.sold}</p>
+              </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
               <div className="flex items-center justify-between mb-2">
                 <div className="bg-purple-50 p-2 rounded-lg">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-green-600">+8%</span>
+                <span className="text-xs font-medium text-purple-600">
+                  All Properties
+                </span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900">$52k</h3>
-              <p className="text-xs text-gray-600">Revenue</p>
+              <h3 className="text-xl font-bold text-gray-900">{totalLots}</h3>
+              <p className="text-xs text-gray-600">Total Lots</p>
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-gray-500">Living Water: {livingWaterStats.total}</p>
+                <p className="text-xs text-gray-500">Havahills: {havahillsStats.total}</p>
+              </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
               <div className="flex items-center justify-between mb-2">
                 <div className="bg-yellow-50 p-2 rounded-lg">
                   <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-red-600">-3%</span>
+                <span className="text-xs font-medium text-yellow-600">
+                  With Email
+                </span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900">15</h3>
-              <p className="text-xs text-gray-600">Open Tickets</p>
+              <h3 className="text-xl font-bold text-gray-900">{activeAccounts}</h3>
+              <p className="text-xs text-gray-600">Active Accounts</p>
+              <div className="mt-2">
+                <p className="text-xs text-gray-500">Verified clients with email access</p>
+              </div>
             </div>
           </div>
 

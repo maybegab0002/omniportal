@@ -33,36 +33,35 @@ interface LivingWaterProperty {
 
 interface HavahillsProperty {
   id: number;
-  Block: string;
-  Lot: string;
+  Block: number;
+  Lot: number;
   Due: string;
-  DateOfReservation: string;
-  FirstDueMonth: string;
+  'Date of Reservation': string;
+  'First Due': string;
   Terms: string;
   Amount: number;
   Realty: string;
-  BuyersName: string;
-  SellerName: string;
-  SalesDirector: string;
+  'Buyers Name': string;
+  'Seller Name': string;
+  'Sales Director': string;
   Broker: string;
-  LotSize: number;
+  'Lot Size': number;
   Price: number;
-  PaymentScheme: string;
-  VatStatus: string;
+  'Payment Scheme': string;
+  'Vat Status': string;
   TSP: number;
-  ModeOfPayment: string;
+  'Mode of Payment': string;
   Reservation: number;
-  CommPrice: number;
-  MiscFee: number;
+  'Comm Price': number;
+  'Misc Fee': number;
   Vat: number;
   TCP: number;
-  FirstMA: number;
-  FirstMAWithHoldingFee: number;
-  SecondToMA: number;
-  NewTerm: string;
-  PasaloPrice: number;
-  NewMA: number;
-  created_at?: string;
+  '1st MA': number;
+  '1ST MA with Holding Fee': number;
+  '2ND TO 48TH MA': number;
+  'NEW TERM': string;
+  'PASALO PRICE': number;
+  'NEW MA': number;
 }
 
 type Property = LivingWaterProperty | HavahillsProperty;
@@ -173,18 +172,18 @@ const InventoryPage: React.FC = () => {
             ...item,
             Amount: parseNumericValue(item.Amount),
             Reservation: parseNumericValue(item.Reservation),
-            LotSize: parseNumericValue(item.LotSize),
+            'Lot Size': parseNumericValue(item['Lot Size']),
             Price: parseNumericValue(item.Price),
             TSP: parseNumericValue(item.TSP),
-            CommPrice: parseNumericValue(item.CommPrice),
-            MiscFee: parseNumericValue(item.MiscFee),
+            'Comm Price': parseNumericValue(item['Comm Price']),
+            'Misc Fee': parseNumericValue(item['Misc Fee']),
             Vat: parseNumericValue(item.Vat),
             TCP: parseNumericValue(item.TCP),
-            FirstMA: parseNumericValue(item.FirstMA),
-            FirstMAWithHoldingFee: parseNumericValue(item.FirstMAWithHoldingFee),
-            SecondToMA: parseNumericValue(item.SecondToMA),
-            PasaloPrice: parseNumericValue(item.PasaloPrice),
-            NewMA: parseNumericValue(item.NewMA)
+            '1st MA': parseNumericValue(item['1st MA']),
+            '1ST MA with Holding Fee': parseNumericValue(item['1ST MA with Holding Fee']),
+            '2ND TO 48TH MA': parseNumericValue(item['2ND TO 48TH MA']),
+            'PASALO PRICE': parseNumericValue(item['PASALO PRICE']),
+            'NEW MA': parseNumericValue(item['NEW MA'])
           } as HavahillsProperty;
         }
       }) || [];
@@ -261,8 +260,8 @@ const InventoryPage: React.FC = () => {
       return [
         havahillsProperty.Block,
         havahillsProperty.Lot,
-        havahillsProperty.BuyersName,
-        havahillsProperty.SellerName,
+        havahillsProperty['Buyers Name'],
+        havahillsProperty['Seller Name'],
         havahillsProperty.Broker
       ].some(field => field?.toString().toLowerCase().includes(searchLower));
     }
@@ -271,13 +270,13 @@ const InventoryPage: React.FC = () => {
   console.log('Filtered properties length:', filteredProperties.length);
 
   const renderLivingWaterTable = (data: LivingWaterProperty[]) => (
-    <div className="overflow-x-auto bg-white rounded-lg shadow inventory-table-container" style={{ overflowX: 'scroll', position: 'relative' }}>
+    <div className="bg-white rounded-lg shadow flex flex-col h-[calc(100vh-16rem)]">
       <div className="p-4 border-b flex justify-between items-center">
         <span className="text-sm text-gray-500">
           Showing {data.length} properties
         </span>
       </div>
-      <div className="min-w-max">
+      <div className="overflow-auto flex-1">
         <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
@@ -341,13 +340,13 @@ const InventoryPage: React.FC = () => {
   );
 
   const renderHavahillsTable = (data: HavahillsProperty[]) => (
-    <div className="overflow-x-auto bg-white rounded-lg shadow inventory-table-container" style={{ overflowX: 'scroll', position: 'relative' }}>
+    <div className="bg-white rounded-lg shadow flex flex-col h-[calc(100vh-16rem)]">
       <div className="p-4 border-b flex justify-between items-center">
         <span className="text-sm text-gray-500">
           Showing {data.length} properties
         </span>
       </div>
-      <div className="min-w-max">
+      <div className="overflow-auto flex-1">
         <table className="w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
@@ -355,31 +354,31 @@ const InventoryPage: React.FC = () => {
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Lot</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Due</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Date of Reservation</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">First Due Month</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">First Due</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Terms</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Amount</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Amount</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Realty</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Buyers Name</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Seller Name</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Sales Director</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Broker</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Lot Size</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Price</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Payment Scheme</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Vat Status</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">TSP</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Mode of Payment</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Reservation</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Comm Price</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Misc Fee</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Vat</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">TCP</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">1st MA</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">1ST MA with Holding Fee</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">2ND TO 48TH MA</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">NEW TERM</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">PASALO PRICE</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">NEW MA</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Lot Size</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Price</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Payment Scheme</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Vat Status</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">TSP</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Mode of Payment</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Reservation</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Comm Price</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Misc Fee</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Vat</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">TCP</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">1st MA</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">1ST MA with Holding Fee</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">2ND TO 48TH MA</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">NEW TERM</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">PASALO PRICE</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">NEW MA</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -388,32 +387,32 @@ const InventoryPage: React.FC = () => {
                 <td className="sticky left-0 bg-white px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Block}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Lot}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Due}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.DateOfReservation}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.FirstDueMonth}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDate(property['Date of Reservation'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['First Due']}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Terms}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.Amount)}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property.Amount)}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Realty}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.BuyersName}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.SellerName}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.SalesDirector}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['Buyers Name']}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['Seller Name']}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['Sales Director']}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Broker}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.LotSize}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.Price)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.PaymentScheme}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.VatStatus}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.TSP)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.ModeOfPayment}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.Reservation)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.CommPrice)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.MiscFee)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.Vat)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.TCP)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.FirstMA)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.FirstMAWithHoldingFee)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.SecondToMA)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.NewTerm}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.PasaloPrice)}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{formatCurrency(property.NewMA)}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatNumber(property['Lot Size'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property.Price)}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['Payment Scheme']}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['Vat Status']}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property.TSP)}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['Mode of Payment']}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property.Reservation)}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['Comm Price'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['Misc Fee'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property.Vat)}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property.TCP)}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['1st MA'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['1ST MA with Holding Fee'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['2ND TO 48TH MA'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['NEW TERM']}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['PASALO PRICE'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['NEW MA'])}</td>
               </tr>
             ))}
           </tbody>
@@ -557,28 +556,26 @@ const InventoryPage: React.FC = () => {
     const styleElement = document.createElement('style');
     styleElement.setAttribute('data-custom-styles', 'true');
     styleElement.textContent = `
-      .inventory-table-container::-webkit-scrollbar {
-        display: none;
+      .overflow-auto::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
       }
-      .inventory-table-container {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+      .overflow-auto::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 5px;
       }
-      .top-scrollbar-container::-webkit-scrollbar {
-        height: 8px;
+      .overflow-auto::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 5px;
+        border: 2px solid #f1f1f1;
       }
-      .top-scrollbar-container::-webkit-scrollbar-track {
-        background: #f3f4f6;
-      }
-      .top-scrollbar-container::-webkit-scrollbar-thumb {
-        background-color: #6b7280;
-        border-radius: 4px;
+      .overflow-auto::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
       }
     `;
     document.head.appendChild(styleElement);
 
     return () => {
-      // Clean up the style element when component unmounts
       if (styleElement.parentNode) {
         styleElement.parentNode.removeChild(styleElement);
       }
@@ -642,7 +639,7 @@ const InventoryPage: React.FC = () => {
           Block: typeof havahillsProperty.Block,
           Lot: typeof havahillsProperty.Lot,
           Amount: typeof havahillsProperty.Amount,
-          LotSize: typeof havahillsProperty.LotSize,
+          'Lot Size': typeof havahillsProperty['Lot Size'],
           TCP: typeof havahillsProperty.TCP
         });
       }
