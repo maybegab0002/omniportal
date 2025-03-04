@@ -94,7 +94,13 @@ const BalancePage: FC = () => {
     try {
       const { error } = await supabase
         .from('Balance')
-        .delete()
+        .update({
+          "Name": '',
+          "Remaining Balance": null,
+          "Amount": null,
+          "Months Paid": '',
+          "TCP": null
+        })
         .eq('id', selectedBalance.id);
 
       if (error) throw error;
@@ -104,7 +110,7 @@ const BalancePage: FC = () => {
       setIsEditModalOpen(false);
       setSelectedBalance(null);
     } catch (err: any) {
-      console.error('Error deleting balance:', err.message);
+      console.error('Error clearing balance fields:', err.message);
     }
   };
 
@@ -325,9 +331,9 @@ const BalancePage: FC = () => {
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Balance Record</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Clear Balance Fields</h3>
               <p className="text-sm text-gray-500 mb-4">
-                Are you sure you want to delete this balance record? This action cannot be undone.
+                Are you sure you want to clear this record's Name, Remaining Balance, Amount, Months Paid, and TCP? This action cannot be undone.
               </p>
               <div className="flex justify-end space-x-3">
                 <button
@@ -340,7 +346,7 @@ const BalancePage: FC = () => {
                   onClick={handleDelete}
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                 >
-                  Delete
+                  Clear Fields
                 </button>
               </div>
             </div>
