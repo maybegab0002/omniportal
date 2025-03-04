@@ -9,6 +9,8 @@ interface Client {
   Name: string;
   Email?: string;
   auth_id?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 interface CreateAccountModalProps {
@@ -319,6 +321,7 @@ const ClientsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [sortByLastName, setSortByLastName] = useState(false);
   
   const itemsPerPage = 15;
 
@@ -328,17 +331,49 @@ const ClientsPage: React.FC = () => {
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredClients(clients);
-      setTotalPages(Math.ceil(clients.length / itemsPerPage));
-    } else {
-      const filtered = clients.filter(client =>
-        client.Name.toLowerCase().includes(searchQuery.toLowerCase())
+      // Process and sort clients
+      const processedClients = clients.map(client => {
+        const nameParts = client.Name.split(' ');
+        return {
+          ...client,
+          firstName: nameParts[0] || '',
+          lastName: nameParts[nameParts.length - 1] || ''
+        };
+      });
+
+      // Sort based on toggle
+      const sortedClients = [...processedClients].sort((a, b) => 
+        sortByLastName
+          ? (a.lastName || '').localeCompare(b.lastName || '')
+          : (a.Name || '').localeCompare(b.Name || '')
       );
+      
+      setFilteredClients(sortedClients);
+      setTotalPages(Math.ceil(sortedClients.length / itemsPerPage));
+    } else {
+      const filtered = clients
+        .map(client => {
+          const nameParts = client.Name.split(' ');
+          return {
+            ...client,
+            firstName: nameParts[0] || '',
+            lastName: nameParts[nameParts.length - 1] || ''
+          };
+        })
+        .filter(client =>
+          client.Name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .sort((a, b) => 
+          sortByLastName
+            ? (a.lastName || '').localeCompare(b.lastName || '')
+            : (a.Name || '').localeCompare(b.Name || '')
+        );
+        
       setFilteredClients(filtered);
       setTotalPages(Math.ceil(filtered.length / itemsPerPage));
       setCurrentPage(1);
     }
-  }, [searchQuery, clients]);
+  }, [searchQuery, clients, sortByLastName]);
 
   const fetchClients = async () => {
     try {
@@ -360,6 +395,10 @@ const ClientsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSort = () => {
+    setSortByLastName(!sortByLastName);
   };
 
   // Get current page's clients
@@ -391,15 +430,25 @@ const ClientsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="mt-4 max-w-md">
-        <input
-          type="text"
-          placeholder="Search clients..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="block w-full rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
-        />
+      <div className="mt-4 flex flex-wrap gap-4 items-center">
+        {/* Search Input */}
+        <div className="max-w-md flex-grow">
+          <input
+            type="text"
+            placeholder="Search clients..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+          />
+        </div>
+        
+        {/* Sort Toggle Button */}
+        <button
+          onClick={toggleSort}
+          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Sort by {sortByLastName ? 'First Name' : 'Last Name'}
+        </button>
       </div>
 
       <div className="mt-6 flex flex-col">
@@ -502,7 +551,7 @@ const ClientsPage: React.FC = () => {
                             >
                               <span className="sr-only">Next</span>
                               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06.02z" clipRule="evenodd" />
                               </svg>
                             </button>
                           </nav>
