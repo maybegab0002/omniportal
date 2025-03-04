@@ -35,15 +35,15 @@ const AdminDashboardPage = () => {
         return;
       }
 
-      // Check if user is admin
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', user.id)
+      // Check if user's email exists in Clients table
+      const { data: client } = await supabase
+        .from('Clients')
+        .select('Email')
+        .eq('Email', user.email)
         .single();
 
-      // If user has a display_name, they are not an admin
-      if (profile?.display_name) {
+      // If user is found in Clients table, they are not an admin
+      if (client) {
         navigate('/dashboard');
         return;
       }
@@ -106,6 +106,13 @@ const AdminDashboardPage = () => {
       path: '/admin/close-deal', 
       type: 'item',
       icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />,
+      restricted: true
+    },
+    { 
+      name: 'Balance', 
+      path: '/admin/balance', 
+      type: 'item',
+      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
       restricted: true
     },
     { type: 'divider', name: 'Support', path: '' },

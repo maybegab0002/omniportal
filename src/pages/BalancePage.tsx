@@ -1,0 +1,256 @@
+import type { FC } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import PageTransition from '../components/PageTransition';
+import EditBalanceModal, { EditBalanceData } from '../components/EditBalanceModal';
+
+interface BalanceData {
+  id: number;
+  "Name": string;
+  "Remaining Balance": number | null;
+  "Amount": number | null;
+  "Months Paid": number | null;
+  "TCP": number | null;
+  "Project": string;
+  "Block": string;
+  "Lot": string;
+}
+
+const PROJECTS = ['Living Water Subdivision', 'Havahills Estate'];
+
+const BalancePage: FC = () => {
+  const [balances, setBalances] = useState<BalanceData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedBalance, setSelectedBalance] = useState<BalanceData | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProject, setSelectedProject] = useState<string>('');
+
+  useEffect(() => {
+    fetchBalances();
+  }, []);
+
+  const fetchBalances = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('Balance')
+        .select('id, "Name", "Remaining Balance", "Amount", "Months Paid", "TCP", "Project", "Block", "Lot"')
+        .order('"Name"', { ascending: true });
+
+      if (error) throw error;
+
+      setBalances(data || []);
+    } catch (err: any) {
+      console.error('Error fetching balances:', err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (balance: BalanceData) => {
+    setSelectedBalance(balance);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSave = async (updatedData: EditBalanceData) => {
+    try {
+      const { error } = await supabase
+        .from('Balance')
+        .update({
+          "Remaining Balance": updatedData["Remaining Balance"],
+          "Amount": updatedData["Amount"],
+          "Months Paid": updatedData["Months Paid"],
+          "TCP": updatedData["TCP"],
+          "Project": updatedData["Project"],
+          "Block": updatedData["Block"],
+          "Lot": updatedData["Lot"]
+        })
+        .eq('id', updatedData.id);
+
+      if (error) throw error;
+
+      await fetchBalances();
+    } catch (err: any) {
+      console.error('Error updating balance:', err.message);
+    }
+  };
+
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null || amount === undefined) return '₱0.00';
+    return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const filteredBalances = balances.filter(balance => {
+    const matchesSearch = (balance['Name']?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (balance['Block']?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (balance['Lot']?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    
+    const matchesProject = !selectedProject || balance['Project'] === selectedProject;
+    
+    return matchesSearch && matchesProject;
+  });
+
+  if (loading) {
+    return (
+      <PageTransition>
+        <div className="flex justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageTransition>
+        <div className="flex justify-center items-center h-screen">
+          <div className="text-red-600">Error loading balance data: {error}</div>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  return (
+    <PageTransition>
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Balance Records</h1>
+          <p className="text-gray-600">Manage and view client balances</p>
+        </div>
+
+        {/* Search and Filter Section */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by name, block, or lot..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="absolute left-3 top-2.5 text-gray-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div className="sm:w-64">
+            <select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Projects</option>
+              {PROJECTS.map((project) => (
+                <option key={project} value={project}>
+                  {project}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Remaining Balance
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Months Paid
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TCP
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Project
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Block
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lot
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredBalances.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
+                      No balance records found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBalances.map((balance) => (
+                    <tr key={balance.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {balance['Name'] || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-red-600">
+                        {formatCurrency(balance['Remaining Balance'])}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {formatCurrency(balance['Amount'])}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                        {balance['Months Paid'] ?? '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {formatCurrency(balance['TCP'])}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {balance['Project'] || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                        {balance['Block'] || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                        {balance['Lot'] || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        <button
+                          onClick={() => handleEdit(balance)}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <EditBalanceModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedBalance(null);
+          }}
+          onSave={handleSave}
+          data={selectedBalance}
+        />
+      </div>
+    </PageTransition>
+  );
+};
+
+export default BalancePage;
