@@ -6,8 +6,18 @@ export const AuthRedirect = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Handle URL parameters for email confirmation
+    const handleEmailConfirmation = () => {
+      const hash = window.location.hash;
+      if (hash.includes('access_token') || hash.includes('error')) {
+        navigate('/login');
+      }
+    };
+
+    handleEmailConfirmation();
+
     // Handle auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth event:', event);
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         // Check if user is admin or client
@@ -43,16 +53,9 @@ export const AuthRedirect = () => {
       }
     });
 
-    // Handle initial URL params
-    const handleRedirect = async () => {
-      const { error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error getting session:', error);
-        navigate('/login');
-      }
+    return () => {
+      subscription.unsubscribe();
     };
-
-    handleRedirect();
   }, [navigate]);
 
   return null;
