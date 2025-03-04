@@ -16,6 +16,8 @@ interface BalanceData {
   "Lot": string;
 }
 
+type SortType = 'name-asc' | 'name-desc' | 'block-lot-asc' | 'block-lot-desc';
+
 const PROJECTS = ['Living Water Subdivision', 'Havahills Estate'];
 
 const BalancePage: FC = () => {
@@ -26,6 +28,7 @@ const BalancePage: FC = () => {
   const [selectedBalance, setSelectedBalance] = useState<BalanceData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string>('');
+  const [sortType, setSortType] = useState<SortType>('name-asc');
 
   useEffect(() => {
     fetchBalances();
@@ -83,6 +86,27 @@ const BalancePage: FC = () => {
     }
   };
 
+  const compareBlockLot = (a: BalanceData, b: BalanceData): number => {
+    // Handle null/undefined cases
+    const blockA = (a.Block || '').toString();
+    const blockB = (b.Block || '').toString();
+    const lotA = (a.Lot || '').toString();
+    const lotB = (b.Lot || '').toString();
+
+    // Extract numeric parts from Block
+    const blockNumA = parseInt(blockA.replace(/\D/g, '') || '0');
+    const blockNumB = parseInt(blockB.replace(/\D/g, '') || '0');
+
+    if (blockNumA !== blockNumB) {
+      return blockNumA - blockNumB;
+    }
+
+    // If blocks are the same, compare lots
+    const lotNumA = parseInt(lotA.replace(/\D/g, '') || '0');
+    const lotNumB = parseInt(lotB.replace(/\D/g, '') || '0');
+    return lotNumA - lotNumB;
+  };
+
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '₱0.00';
     return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -96,6 +120,24 @@ const BalancePage: FC = () => {
     const matchesProject = !selectedProject || balance['Project'] === selectedProject;
     
     return matchesSearch && matchesProject;
+  });
+
+  const sortedBalances = [...filteredBalances].sort((a, b) => {
+    const nameA = a.Name || '';
+    const nameB = b.Name || '';
+
+    switch (sortType) {
+      case 'name-asc':
+        return nameA.localeCompare(nameB);
+      case 'name-desc':
+        return nameB.localeCompare(nameA);
+      case 'block-lot-asc':
+        return compareBlockLot(a, b);
+      case 'block-lot-desc':
+        return compareBlockLot(b, a);
+      default:
+        return 0;
+    }
   });
 
   if (loading) {
@@ -158,6 +200,18 @@ const BalancePage: FC = () => {
               ))}
             </select>
           </div>
+          <div className="sm:w-64">
+            <select
+              value={sortType}
+              onChange={(e) => setSortType(e.target.value as SortType)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="name-asc">Name (A to Z)</option>
+              <option value="name-desc">Name (Z to A)</option>
+              <option value="block-lot-asc">Block/Lot (Ascending)</option>
+              <option value="block-lot-desc">Block/Lot (Descending)</option>
+            </select>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow flex flex-col h-[calc(100vh-16rem)]">
@@ -189,7 +243,7 @@ const BalancePage: FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredBalances.map((balance) => (
+                  sortedBalances.map((balance) => (
                     <tr key={balance.id} className="hover:bg-gray-50">
                       <td className="sticky left-0 bg-white px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {balance['Name']}
@@ -231,15 +285,14 @@ const BalancePage: FC = () => {
           </div>
         </div>
 
-        <EditBalanceModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setSelectedBalance(null);
-          }}
-          onSave={handleSave}
-          data={selectedBalance}
-        />
+        {isEditModalOpen && selectedBalance && (
+          <EditBalanceModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            onSave={handleSave}
+            data={selectedBalance}
+          />
+        )}
       </div>
     </PageTransition>
   );
