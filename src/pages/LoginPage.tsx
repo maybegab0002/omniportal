@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, getAuthOptions } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
 
 const LoginPage = () => {
@@ -33,6 +33,7 @@ const LoginPage = () => {
           const { error: resendError } = await supabase.auth.resend({
             type: 'signup',
             email: email,
+            ...getAuthOptions()
           });
           
           if (resendError) {
@@ -112,6 +113,7 @@ const LoginPage = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        ...getAuthOptions(),
         redirectTo: window.location.origin + '/reset-password',
       });
 
