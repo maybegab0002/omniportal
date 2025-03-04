@@ -5,6 +5,7 @@ interface EditBalanceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: EditBalanceData) => Promise<void>;
+  onDelete: () => void;
   data: EditBalanceData | null;
 }
 
@@ -20,7 +21,7 @@ export interface EditBalanceData {
   "Lot": string;
 }
 
-const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, data }) => {
+const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, onDelete, data }) => {
   const [formData, setFormData] = React.useState<EditBalanceData | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -73,7 +74,7 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              {/* Name (Read-only) */}
+              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Name
@@ -81,8 +82,8 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                 <input
                   type="text"
                   value={formData['Name']}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                  onChange={(e) => handleInputChange('Name', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
 
@@ -182,22 +183,31 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-between mt-6">
               <button
                 type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+                onClick={onDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
               >
-                Cancel
+                Delete Record
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md 
-                  ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
-              >
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md 
+                    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
             </div>
           </form>
         </Dialog.Panel>

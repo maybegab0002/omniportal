@@ -29,6 +29,7 @@ const BalancePage: FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [sortType, setSortType] = useState<SortType>('name-asc');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     fetchBalances();
@@ -68,6 +69,7 @@ const BalancePage: FC = () => {
       const { error } = await supabase
         .from('Balance')
         .update({
+          "Name": updatedData["Name"],
           "Remaining Balance": updatedData["Remaining Balance"],
           "Amount": updatedData["Amount"],
           "Months Paid": updatedData["Months Paid"],
@@ -83,6 +85,26 @@ const BalancePage: FC = () => {
       await fetchBalances();
     } catch (err: any) {
       console.error('Error updating balance:', err.message);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedBalance) return;
+
+    try {
+      const { error } = await supabase
+        .from('Balance')
+        .delete()
+        .eq('id', selectedBalance.id);
+
+      if (error) throw error;
+
+      await fetchBalances();
+      setShowDeleteConfirm(false);
+      setIsEditModalOpen(false);
+      setSelectedBalance(null);
+    } catch (err: any) {
+      console.error('Error deleting balance:', err.message);
     }
   };
 
@@ -288,10 +310,41 @@ const BalancePage: FC = () => {
         {isEditModalOpen && selectedBalance && (
           <EditBalanceModal
             isOpen={isEditModalOpen}
-            onClose={() => setIsEditModalOpen(false)}
+            onClose={() => {
+              setIsEditModalOpen(false);
+              setSelectedBalance(null);
+              setShowDeleteConfirm(false);
+            }}
             onSave={handleSave}
+            onDelete={() => setShowDeleteConfirm(true)}
             data={selectedBalance}
           />
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Balance Record</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Are you sure you want to delete this balance record? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </PageTransition>
