@@ -13,7 +13,7 @@ export interface EditBalanceData {
   "Name": string;
   "Remaining Balance": number | null;
   "Amount": number | null;
-  "Months Paid": number | null;
+  "Months Paid": string;
   "TCP": number | null;
   "Project": string;
   "Block": string;
@@ -51,7 +51,7 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
     let processedValue: string | number | null = value;
     
     // Handle numeric fields
-    if (['Remaining Balance', 'Amount', 'Months Paid', 'TCP'].includes(field)) {
+    if (['Remaining Balance', 'Amount', 'TCP'].includes(field)) {
       processedValue = value === '' ? null : Number(value);
     }
 
@@ -120,10 +120,11 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                   Months Paid
                 </label>
                 <input
-                  type="number"
-                  value={formData['Months Paid'] ?? ''}
+                  type="text"
+                  value={formData['Months Paid']}
                   onChange={(e) => handleInputChange('Months Paid', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="e.g. November 2023 - August 2024"
                 />
               </div>
 

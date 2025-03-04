@@ -9,7 +9,7 @@ interface BalanceData {
   "Name": string;
   "Remaining Balance": number | null;
   "Amount": number | null;
-  "Months Paid": number | null;
+  "Months Paid": string;
   "TCP": number | null;
   "Project": string;
   "Block": string;
@@ -41,7 +41,12 @@ const BalancePage: FC = () => {
 
       if (error) throw error;
 
-      setBalances(data || []);
+      const processedData = (data || []).map(item => ({
+        ...item,
+        "Months Paid": item["Months Paid"]?.toString() || ''
+      }));
+
+      setBalances(processedData);
     } catch (err: any) {
       console.error('Error fetching balances:', err.message);
       setError(err.message);
@@ -155,38 +160,25 @@ const BalancePage: FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+        <div className="bg-white rounded-lg shadow flex flex-col h-[calc(100vh-16rem)]">
+          <div className="p-4 border-b flex justify-between items-center">
+            <span className="text-sm text-gray-500">
+              Showing {filteredBalances.length} records
+            </span>
+          </div>
+          <div className="overflow-auto flex-1">
+            <table className="w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Remaining Balance
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Months Paid
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    TCP
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Project
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Block
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Lot
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="sticky left-0 bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Name</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Remaining Balance</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Amount</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">Months Paid</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">TCP</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Project</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Block</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Lot</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -199,34 +191,34 @@ const BalancePage: FC = () => {
                 ) : (
                   filteredBalances.map((balance) => (
                     <tr key={balance.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {balance['Name'] || '-'}
+                      <td className="sticky left-0 bg-white px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {balance['Name']}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-red-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                         {formatCurrency(balance['Remaining Balance'])}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                         {formatCurrency(balance['Amount'])}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                        {balance['Months Paid'] ?? '-'}
+                        {balance['Months Paid'] || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                         {formatCurrency(balance['TCP'])}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {balance['Project'] || '-'}
+                        {balance['Project']}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                        {balance['Block'] || '-'}
+                        {balance['Block']}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                        {balance['Lot'] || '-'}
+                        {balance['Lot']}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => handleEdit(balance)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
+                          className="text-blue-600 hover:text-blue-900"
                         >
                           Edit
                         </button>
