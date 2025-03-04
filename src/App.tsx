@@ -12,12 +12,14 @@ import TeamChatPage from './pages/TeamChatPage';
 import TicketPage from './pages/TicketPage';
 import BalancePage from './pages/BalancePage';
 import ClientDashboardPage from './pages/ClientDashboardPage';
+import AuthRedirect from './components/AuthRedirect';
 import './styles/scrollbar.css';
 import './styles/pageTransitions.css';
 
 function App() {
   return (
     <Router basename="/omniportal">
+      <AuthRedirect />
       <AnimatePresence mode="wait">
         <Routes>
           <Route path="/" element={<LoginPage />} />
