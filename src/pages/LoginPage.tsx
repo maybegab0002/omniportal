@@ -146,22 +146,22 @@ const LoginPage = () => {
         {/* Login container */}
         <div className="w-full max-w-md relative z-10">
           {/* Logo and brand */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-md mb-4">
-              <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <div className="text-center mb-8 animate-fadeIn">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-md mb-4 animate-float">
+              <svg className="w-10 h-10 text-blue-600 transform transition-transform duration-700 hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
             </div>
-            <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">OMNI PORTAL</h1>
-            <p className="text-gray-500 mt-1">Premium Real Estate Management</p>
+            <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight animate-slideUp delay-100">OMNI PORTAL</h1>
+            <p className="text-gray-500 mt-1 animate-slideUp delay-200">Premium Real Estate Management</p>
           </div>
           
           {/* Login card */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             {/* Card header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-              <h2 className="text-white text-xl font-semibold">Sign in to your account</h2>
-              <p className="text-blue-100 text-sm mt-1">Access your dashboard and properties</p>
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 animate-slideDown">
+              <h2 className="text-white text-xl font-semibold animate-fadeIn delay-300">Sign in to your account</h2>
+              <p className="text-blue-100 text-sm mt-1 animate-fadeIn delay-400">Access your dashboard and properties</p>
             </div>
             
             {/* Card body */}
@@ -178,12 +178,12 @@ const LoginPage = () => {
               )}
               
               <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
+                <div className="animate-slideUp delay-500">
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-                  <div className="relative rounded-md shadow-sm">
+                  <div className="relative rounded-md shadow-sm group animate-fadeIn delay-500">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                      <svg className="h-5 w-5 text-gray-400 transition-colors duration-300 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <input
@@ -192,7 +192,7 @@ const LoginPage = () => {
                       type="email"
                       autoComplete="email"
                       required
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-300 ease-in-out hover:border-blue-400"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -200,20 +200,20 @@ const LoginPage = () => {
                   </div>
                 </div>
                 
-                <div>
+                <div className="animate-slideUp delay-600">
                   <div className="flex items-center justify-between mb-1">
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
                     <button
                       type="button"
                       onClick={handleForgotPassword}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors duration-300 hover:underline"
                     >
                       Forgot password?
                     </button>
                   </div>
-                  <div className="relative rounded-md shadow-sm">
+                  <div className="relative rounded-md shadow-sm group">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-5 w-5 text-gray-400 transition-colors duration-300 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
@@ -223,7 +223,7 @@ const LoginPage = () => {
                       type="password"
                       autoComplete="current-password"
                       required
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-300 ease-in-out hover:border-blue-400"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -231,25 +231,25 @@ const LoginPage = () => {
                   </div>
                 </div>
                 
-                <div className="flex items-center">
+                <div className="flex items-center animate-slideUp delay-700">
                   <input
                     id="remember-me"
                     name="remember-me"
                     type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer transition-colors duration-300"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 hover:text-gray-900 transition-colors duration-300 cursor-pointer">
                     Remember me
                   </label>
                 </div>
                 
-                <div>
+                <div className="animate-slideUp delay-800">
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
+                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     {isLoading ? (
                       <div className="flex items-center">
@@ -261,7 +261,7 @@ const LoginPage = () => {
                       </div>
                     ) : (
                       <div className="flex items-center">
-                        <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="mr-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                         </svg>
                         Sign in
@@ -273,7 +273,7 @@ const LoginPage = () => {
             </div>
             
             {/* Card footer */}
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-center">
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 text-center animate-fadeIn delay-900">
               <p className="text-xs text-gray-500">
                 {new Date().getFullYear()} Omni Portal. All rights reserved.
               </p>
@@ -282,29 +282,29 @@ const LoginPage = () => {
           
           {/* Feature highlights */}
           <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-            <div className="p-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full text-blue-600 mb-2">
+            <div className="p-3 animate-slideUp delay-1000 hover:transform hover:scale-105 transition-transform duration-300">
+              <div className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full text-blue-600 mb-2 transform transition-all duration-300 hover:bg-blue-200 hover:text-blue-700 hover:scale-110">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
-              <p className="text-xs text-gray-600">Secure Access</p>
+              <p className="text-xs text-gray-600 transition-colors duration-300 hover:text-gray-900">Secure Access</p>
             </div>
-            <div className="p-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full text-blue-600 mb-2">
+            <div className="p-3 animate-slideUp delay-1100 hover:transform hover:scale-105 transition-transform duration-300">
+              <div className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full text-blue-600 mb-2 transform transition-all duration-300 hover:bg-blue-200 hover:text-blue-700 hover:scale-110">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>
-              <p className="text-xs text-gray-600">Property Management</p>
+              <p className="text-xs text-gray-600 transition-colors duration-300 hover:text-gray-900">Property Management</p>
             </div>
-            <div className="p-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full text-blue-600 mb-2">
+            <div className="p-3 animate-slideUp delay-1200 hover:transform hover:scale-105 transition-transform duration-300">
+              <div className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full text-blue-600 mb-2 transform transition-all duration-300 hover:bg-blue-200 hover:text-blue-700 hover:scale-110">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <p className="text-xs text-gray-600">Real-time Updates</p>
+              <p className="text-xs text-gray-600 transition-colors duration-300 hover:text-gray-900">Real-time Updates</p>
             </div>
           </div>
         </div>
