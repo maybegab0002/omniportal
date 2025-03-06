@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
 
 interface Client {
   id: number;
@@ -22,8 +23,21 @@ interface Document {
   created_at: string;
 }
 
+// Property details interface
+interface PropertyDetails {
+  project: string;
+  block?: string;
+  lot?: string;
+}
+
+// Map to store client property details - now an array of properties per client
+interface ClientPropertyMap {
+  [clientName: string]: PropertyDetails[];
+}
+
 interface ClientWithDocs extends Client {
   documents: Document[];
+  propertyDetails?: PropertyDetails[];
 }
 
 interface DocumentForm {
@@ -45,6 +59,7 @@ const DocumentsPage: React.FC = () => {
     'Living Water Subdivision': [],
     'Havahills Estate': []
   });
+  const [clientProperties, setClientProperties] = useState<ClientPropertyMap>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,10 +74,8 @@ const DocumentsPage: React.FC = () => {
     'Marital Status': '',
     file: null
   });
-  const [uploadStatus, setUploadStatus] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [viewingDocId, setViewingDocId] = useState<number | null>(null);
-  const [dragActive, setDragActive] = useState<boolean>(false);
 
   useEffect(() => {
     fetchClientsWithDocs();
@@ -76,7 +89,8 @@ const DocumentsPage: React.FC = () => {
       return {
         ...client,
         firstName: nameParts[0] || '',
-        lastName: nameParts[nameParts.length - 1] || ''
+        lastName: nameParts[nameParts.length - 1] || '',
+        propertyDetails: clientProperties[client.Name] || []
       };
     });
 
@@ -97,17 +111,23 @@ const DocumentsPage: React.FC = () => {
       // Filter by project
       let matchesProject = true;
       if (selectedProject !== 'all') {
-        const projectOwnersList = projectOwners[selectedProject] || [];
-        
-        // Try a more flexible matching approach
-        matchesProject = projectOwnersList.some(owner => {
-          // Clean and normalize strings for comparison
-          const ownerLower = owner.toLowerCase().trim();
-          const clientLower = client.Name.toLowerCase().trim();
+        // Check if any of the client's properties match the selected project
+        if (client.propertyDetails && client.propertyDetails.some(property => property.project === selectedProject)) {
+          matchesProject = true;
+        } else {
+          // Fall back to the existing name-based matching
+          const projectOwnersList = projectOwners[selectedProject] || [];
           
-          // Check for partial matches in either direction
-          return ownerLower.includes(clientLower) || clientLower.includes(ownerLower);
-        });
+          // Try a more flexible matching approach
+          matchesProject = projectOwnersList.some(owner => {
+            // Clean and normalize strings for comparison
+            const ownerLower = owner.toLowerCase().trim();
+            const clientLower = client.Name.toLowerCase().trim();
+            
+            // Check for partial matches in either direction
+            return ownerLower.includes(clientLower) || clientLower.includes(ownerLower);
+          });
+        }
       }
       
       return matchesSearch && matchesProject;
@@ -115,7 +135,7 @@ const DocumentsPage: React.FC = () => {
 
     console.log('Filtered clients count:', filtered.length);
     setFilteredClients(filtered);
-  }, [clients, searchQuery, sortByLastName, selectedProject, projectOwners]);
+  }, [clients, searchQuery, sortByLastName, selectedProject, projectOwners, clientProperties]);
 
   const fetchClientsWithDocs = async () => {
     try {
@@ -152,19 +172,19 @@ const DocumentsPage: React.FC = () => {
   // Fetch owners from project tables
   const fetchProjectOwners = async () => {
     try {
-      // Fetch Living Water Subdivision owners
+      // Fetch Living Water Subdivision owners with block and lot
       const { data: livingWaterData, error: livingWaterError } = await supabase
         .from('Living Water Subdivision')
-        .select('Owner')
+        .select('Owner, Block, Lot')
         .not('Owner', 'is', null)
         .not('Owner', 'eq', '');  // Skip empty strings
 
       if (livingWaterError) throw livingWaterError;
 
-      // Fetch Havahills Estate buyers
+      // Fetch Havahills Estate buyers with block and lot
       const { data: havahillsData, error: havahillsError } = await supabase
         .from('Havahills Estate')
-        .select('"Buyers Name"')
+        .select('"Buyers Name", Block, Lot')
         .not('"Buyers Name"', 'is', null)
         .not('"Buyers Name"', 'eq', '');  // Skip empty strings
 
@@ -185,6 +205,42 @@ const DocumentsPage: React.FC = () => {
 
       console.log('Living Water Owners:', livingWaterOwners);
       console.log('Havahills Buyers:', havahillsBuyers);
+
+      // Create a map of client names to their property details
+      const propertyMap: ClientPropertyMap = {};
+      
+      // Add Living Water properties
+      livingWaterData?.forEach(item => {
+        if (item.Owner && item.Owner.trim() !== '') {
+          const clientName = item.Owner.trim();
+          if (!propertyMap[clientName]) {
+            propertyMap[clientName] = [];
+          }
+          propertyMap[clientName].push({
+            project: 'Living Water Subdivision',
+            block: item.Block,
+            lot: item.Lot
+          });
+        }
+      });
+      
+      // Add Havahills properties
+      havahillsData?.forEach(item => {
+        if (item['Buyers Name'] && item['Buyers Name'].trim() !== '') {
+          const clientName = item['Buyers Name'].trim();
+          if (!propertyMap[clientName]) {
+            propertyMap[clientName] = [];
+          }
+          propertyMap[clientName].push({
+            project: 'Havahills Estate',
+            block: item.Block,
+            lot: item.Lot
+          });
+        }
+      });
+      
+      // Set the property map in state
+      setClientProperties(propertyMap);
 
       setProjectOwners({
         'Living Water Subdivision': livingWaterOwners,
@@ -213,44 +269,17 @@ const DocumentsPage: React.FC = () => {
     });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({
-        ...prev,
-        file: e.target.files![0]
-      }));
-    }
-  };
-
-  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFormData(prev => ({
-        ...prev,
-        file: e.dataTransfer.files[0]
-      }));
+      const file = e.target.files[0];
+      if (file.type === 'application/pdf') {
+        setFormData(prev => ({
+          ...prev,
+          file: file
+        }));
+      } else {
+        toast.error('Please upload a PDF file');
+      }
     }
   };
 
@@ -258,70 +287,68 @@ const DocumentsPage: React.FC = () => {
     e.preventDefault();
     if (!selectedClient || !formData.file) return;
 
-    setUploadStatus('Uploading...');
     setIsUploading(true);
     try {
-      // 1. Upload file to storage bucket
+      const formDataToSend = new FormData();
+      formDataToSend.append('file', formData.file);
+      formDataToSend.append('clientName', selectedClient.Name);
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key !== 'file' && value) {
+          formDataToSend.append(key, value);
+        }
+      });
+
+      // Upload to Supabase storage
       const fileExt = formData.file.name.split('.').pop();
-      const timestamp = Date.now();
-      const fileName = `${timestamp}.${fileExt}`;
-      
-      // Sanitize the client name for use in file path
-      // Replace special characters, spaces and slashes with safe alternatives
-      const sanitizedClientName = selectedClient.Name
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
-        .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
-      
-      const filePath = `${sanitizedClientName}_${fileName}`;
-      
-      console.log('Uploading file to path:', filePath);
-      
-      const { error: uploadError } = await supabase.storage
-        .from('Clients Document')
-        .upload(filePath, formData.file);
+      const fileName = `${selectedClient.Name}_${Date.now()}.${fileExt}`;
+      const { error } = await supabase.storage
+        .from('documents')
+        .upload(`${selectedClient.Name}/${fileName}`, formData.file);
 
-      if (uploadError) throw uploadError;
-      
-      console.log('File uploaded successfully to:', filePath);
+      if (error) throw error;
 
-      // 2. Save document metadata to Documents table
+      // Get the public URL
+      const { data: { publicUrl } } = await supabase.storage
+        .from('documents')
+        .getPublicUrl(`${selectedClient.Name}/${fileName}`);
+
+      // Save document metadata to database
       const { error: dbError } = await supabase
-        .from('Documents')
+        .from('documents')
         .insert([
           {
-            Name: selectedClient.Name,
-            Address: formData.Address || null,
-            'TIN ID': formData['TIN ID'] || null,
-            Email: formData.Email || null,
-            'Contact No': formData['Contact No'] || null,
-            'Marital Status': formData['Marital Status'] || null
+            client_name: selectedClient.Name,
+            file_name: fileName,
+            file_path: publicUrl,
+            contact_no: formData['Contact No'],
+            tin_id: formData['TIN ID'],
+            email: formData.Email,
+            address: formData.Address,
+            marital_status: formData['Marital Status']
           }
         ]);
 
       if (dbError) throw dbError;
 
-      // 3. Refresh the clients list to show updated documents
+      // Refresh the clients list
       await fetchClientsWithDocs();
-
-      setUploadStatus('Upload successful!');
-      setTimeout(() => {
-        closeModal();
-      }, 1500);
-    } catch (err: any) {
-      console.error('Upload error:', err);
-      setUploadStatus(`Error: ${err.message}`);
+      
+      setFormData({
+        'Contact No': '',
+        'TIN ID': '',
+        Email: '',
+        Address: '',
+        'Marital Status': '',
+        file: null
+      });
+      setIsModalOpen(false);
+      toast.success('Document uploaded successfully!');
+    } catch (error: any) {
+      console.error('Error uploading document:', error);
+      toast.error(error.message || 'Failed to upload document. Please try again.');
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedClient(null);
-    setUploadStatus('');
-    setDragActive(false);
-    setIsUploading(false);
   };
 
   const closeDetailsModal = () => {
@@ -453,45 +480,70 @@ const DocumentsPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredClients.map((client) => (
-          <div key={client.id} className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">{client.Name}</h2>
-              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
-                {client.documents?.length || 0} docs
-              </span>
+          <div key={client.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+            {/* Header */}
+            <div className="p-3 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-medium text-gray-900 truncate" title={client.Name}>
+                  {client.Name}
+                </h2>
+                <span className="bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded">
+                  {client.documents?.length || 0} docs
+                </span>
+              </div>
+              
+              {/* Property Tags */}
+              {clientProperties[client.Name] && clientProperties[client.Name].length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <span className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
+                    {clientProperties[client.Name][0].project}
+                  </span>
+                  {clientProperties[client.Name].map((property, index) => (
+                    <span 
+                      key={index} 
+                      className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded"
+                    >
+                      {property.block && `Block ${property.block}`}
+                      {property.block && property.lot && ' • '}
+                      {property.lot && `Lot ${property.lot}`}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            
-            <div className="text-gray-500 text-sm mb-4">
+
+            {/* Documents List */}
+            <div className="p-3">
               {client.documents && client.documents.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {client.documents.map((doc, index) => (
-                    <div key={doc.id || index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <span className="truncate text-gray-700">{doc.Name}</span>
-                      <div className="flex space-x-2">
+                    <div key={doc.id || index} className="group flex items-center text-sm">
+                      <span className="flex-1 truncate text-gray-600">{doc.Name}</span>
+                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleViewDetails(doc)}
-                          className="text-gray-600 hover:text-blue-600 text-xs font-medium px-2 py-1 border border-gray-300 rounded hover:bg-gray-100 flex items-center"
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                          title="View Details"
                         >
-                          <InformationCircleIcon className="h-3 w-3 mr-1" />
-                          Details
+                          <InformationCircleIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleViewDocument(doc)}
-                          className="text-blue-500 hover:text-blue-600 text-xs font-medium px-2 py-1 border border-blue-500 rounded hover:bg-blue-50 flex items-center"
+                          className="p-1 text-blue-500 hover:text-blue-700"
                           disabled={viewingDocId === doc.id}
+                          title="View PDF"
                         >
                           {viewingDocId === doc.id ? (
-                            <>
-                              <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Loading...
-                            </>
+                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
                           ) : (
-                            'View PDF'
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
                           )}
                         </button>
                       </div>
@@ -499,23 +551,31 @@ const DocumentsPage: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div>No documents uploaded yet</div>
+                <div className="text-sm text-gray-500 text-center py-2">
+                  No documents
+                </div>
               )}
             </div>
 
-            <button
-              onClick={() => handleUpload(client)}
-              className="w-full text-blue-500 hover:text-blue-600 text-sm font-medium py-2 border border-blue-500 rounded-lg hover:bg-blue-50"
-            >
-              Upload New Document
-            </button>
+            {/* Upload Button */}
+            <div className="px-3 pb-3">
+              <button
+                onClick={() => handleUpload(client)}
+                className="w-full bg-white text-blue-600 hover:bg-blue-50 text-sm font-medium py-1.5 rounded transition-colors flex items-center justify-center space-x-1 border border-blue-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Upload</span>
+              </button>
+            </div>
           </div>
         ))}
       </div>
 
       {/* Upload Modal */}
       <Transition appear show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-10" onClose={closeModal}>
+        <Dialog as="div" className="relative z-10" onClose={() => setIsModalOpen(false)}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -525,7 +585,7 @@ const DocumentsPage: React.FC = () => {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-50" />
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
@@ -539,218 +599,223 @@ const DocumentsPage: React.FC = () => {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                  <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-gray-900">
-                      Upload Document
-                    </Dialog.Title>
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-full p-1"
-                      onClick={closeModal}
-                    >
-                      <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-                    </button>
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+                  {/* Header with gradient */}
+                  <div className="bg-gradient-to-r from-indigo-600 to-blue-500 px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <Dialog.Title as="h3" className="text-lg font-semibold text-white">
+                        Upload Document
+                      </Dialog.Title>
+                      <button
+                        onClick={() => setIsModalOpen(false)}
+                        className="text-white/70 hover:text-white transition-colors rounded-full hover:bg-white/10 p-1"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                    {selectedClient && (
+                      <div className="mt-1 text-white/80 text-sm font-light text-left">
+                        for {selectedClient.Name}
+                      </div>
+                    )}
                   </div>
-                  
-                  {selectedClient && (
-                    <div className="mb-6 bg-blue-50 p-4 rounded-lg flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                        <span className="text-blue-700 font-bold">{selectedClient.Name.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-800 font-medium">
-                          {selectedClient.Name}
-                        </p>
-                        <p className="text-xs text-blue-600">
-                          Uploading new document
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address
-                      </label>
-                      <input
-                        type="text"
-                        name="Address"
-                        value={formData.Address}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
-                    </div>
 
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        TIN ID
-                      </label>
-                      <input
-                        type="text"
-                        name="TIN ID"
-                        value={formData['TIN ID']}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      />
-                    </div>
+                  <form onSubmit={handleSubmit} className="p-6">
+                    {/* Form Fields */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Contact No
+                          </label>
+                          <div className="relative rounded-lg shadow-sm">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                              </svg>
+                            </div>
+                            <input
+                              type="text"
+                              value={formData['Contact No']}
+                              onChange={(e) => setFormData({ ...formData, 'Contact No': e.target.value })}
+                              className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Enter number"
+                            />
+                          </div>
+                        </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            TIN ID
+                          </label>
+                          <div className="relative rounded-lg shadow-sm">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                              </svg>
+                            </div>
+                            <input
+                              type="text"
+                              value={formData['TIN ID']}
+                              onChange={(e) => setFormData({ ...formData, 'TIN ID': e.target.value })}
+                              className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Enter TIN"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-gray-700">
                           Email
                         </label>
-                        <input
-                          type="email"
-                          name="Email"
-                          value={formData.Email}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        />
-                      </div>
-
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Contact No
-                        </label>
-                        <input
-                          type="text"
-                          name="Contact No"
-                          value={formData['Contact No']}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Marital Status
-                      </label>
-                      <select
-                        name="Marital Status"
-                        value={formData['Marital Status']}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      >
-                        <option value="">Select status</option>
-                        <option value="Single">Single</option>
-                        <option value="Married">Married</option>
-                        <option value="Divorced">Divorced</option>
-                        <option value="Widowed">Widowed</option>
-                      </select>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Document
-                      </label>
-                      <div 
-                        className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors ${dragActive ? 'bg-blue-50' : ''}`}
-                        onDragEnter={handleDrag}
-                        onDragOver={handleDrag}
-                        onDragLeave={handleDrag}
-                        onDrop={handleDrop}
-                      >
-                        <div className="space-y-1 text-center">
-                          <svg
-                            className="mx-auto h-12 w-12 text-gray-400"
-                            stroke="currentColor"
-                            fill="none"
-                            viewBox="0 0 48 48"
-                            aria-hidden="true"
-                          >
-                            <path
-                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          <div className="flex text-sm text-gray-600">
-                            <label
-                              htmlFor="file-upload"
-                              className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                            >
-                              <span>Upload a file</span>
-                              <input 
-                                id="file-upload" 
-                                name="file-upload" 
-                                type="file" 
-                                className="sr-only" 
-                                onChange={handleFileChange}
-                                required
-                              />
-                            </label>
-                            <p className="pl-1">or drag and drop</p>
+                        <div className="relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                            </svg>
                           </div>
-                          <p className="text-xs text-gray-500">
-                            PDF, PNG, JPG, GIF up to 10MB
-                          </p>
-                          {formData.file && (
-                            <div className="mt-3 text-center">
-                              <p className="text-sm text-blue-600 font-medium">
-                                Selected: {formData.file.name}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {(formData.file.size / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                              {formData.file.type.startsWith('image/') && (
-                                <div className="mt-2 border rounded-lg overflow-hidden max-w-xs mx-auto">
-                                  <img
-                                    src={URL.createObjectURL(formData.file)}
-                                    alt="Preview"
-                                    className="max-h-32 object-contain mx-auto"
-                                    onLoad={(e) => {
-                                      // Clean up the object URL after the image loads to avoid memory leaks
-                                      return () => URL.revokeObjectURL((e.target as HTMLImageElement).src);
-                                    }}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          <input
+                            type="email"
+                            value={formData.Email}
+                            onChange={(e) => setFormData({ ...formData, Email: e.target.value })}
+                            className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter email"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Address
+                        </label>
+                        <div className="relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </div>
+                          <input
+                            type="text"
+                            value={formData.Address}
+                            onChange={(e) => setFormData({ ...formData, Address: e.target.value })}
+                            className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter address"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 mt-6">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Marital Status
+                        </label>
+                        <div className="relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                          </div>
+                          <select
+                            value={formData['Marital Status']}
+                            onChange={(e) => setFormData({ ...formData, 'Marital Status': e.target.value })}
+                            className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                          >
+                            <option value="">Select status</option>
+                            <option value="Single">Single</option>
+                            <option value="Married">Married</option>
+                            <option value="Widowed">Widowed</option>
+                            <option value="Divorced">Divorced</option>
+                          </select>
                         </div>
                       </div>
                     </div>
 
-                    {uploadStatus && (
-                      <div className={`p-3 rounded-lg ${
-                        uploadStatus.includes('Error') 
-                          ? 'bg-red-50 text-red-700' 
-                          : uploadStatus === 'Upload successful!' 
-                            ? 'bg-green-50 text-green-700' 
-                            : 'bg-blue-50 text-blue-700'
-                      }`}>
-                        <p className="text-sm font-medium">
-                          {uploadStatus}
-                        </p>
+                    {/* File Upload Section */}
+                    <div className="mt-6">
+                      <div 
+                        className={`relative rounded-xl border-2 border-dashed transition-all duration-200 bg-gradient-to-r from-gray-50 to-white ${
+                          formData.file 
+                            ? 'border-blue-500/50 bg-blue-50/50' 
+                            : 'border-gray-300 hover:border-blue-400/50 hover:bg-blue-50/30'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          id="file-upload"
+                          accept=".pdf"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="file-upload"
+                          className="cursor-pointer block px-6 py-8"
+                        >
+                          {formData.file ? (
+                            <div className="flex items-center justify-center space-x-3">
+                              <div className="p-2 bg-blue-100 rounded-full shadow-sm">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </div>
+                              <div className="text-left">
+                                <div className="text-sm font-medium text-blue-700 truncate max-w-[200px]">
+                                  {formData.file.name}
+                                </div>
+                                <div className="text-xs text-blue-500 mt-0.5">Click to change file</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="mx-auto w-12 h-12 mb-3 bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
+                                <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                <span className="text-blue-600 font-medium">Click to upload</span>
+                                <span> or drag and drop</span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">PDF files only</p>
+                            </div>
+                          )}
+                        </label>
                       </div>
-                    )}
+                    </div>
 
-                    <div className="mt-6 flex justify-end gap-3">
+                    {/* Action Buttons */}
+                    <div className="mt-8 flex justify-end gap-3">
                       <button
                         type="button"
-                        onClick={closeModal}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        onClick={() => setIsModalOpen(false)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-all duration-200 hover:shadow-sm"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        disabled={isUploading}
-                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
-                        isUploading ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                        disabled={!formData.file || isUploading}
+                        className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 flex items-center bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600 ${
+                          !formData.file || isUploading
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:shadow-md hover:shadow-blue-500/10'
+                        }`}
                       >
                         {isUploading ? (
-                          <div className="flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            <span className="ml-2">Uploading...</span>
-                          </div>
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Uploading...
+                          </>
                         ) : (
-                          <span>Upload Document</span>
+                          <>
+                            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Upload Document
+                          </>
                         )}
                       </button>
                     </div>
@@ -774,7 +839,7 @@ const DocumentsPage: React.FC = () => {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-50" />
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
@@ -788,66 +853,118 @@ const DocumentsPage: React.FC = () => {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                  <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-gray-900">
-                      Client Details
-                    </Dialog.Title>
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-full p-1"
-                      onClick={closeDetailsModal}
-                    >
-                      <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-                    </button>
-                  </div>
-                  
-                  {selectedDocument && (
-                    <div className="space-y-4">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-blue-800 mb-2">Client Information</h4>
-                        <p className="text-sm text-gray-700 font-bold">{selectedDocument.Name}</p>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500 mb-1">Address</p>
-                          <p className="text-sm font-medium">{selectedDocument.Address || 'Not provided'}</p>
-                        </div>
-                        
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500 mb-1">TIN ID</p>
-                          <p className="text-sm font-medium">{selectedDocument['TIN ID'] || 'Not provided'}</p>
-                        </div>
-                        
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500 mb-1">Email</p>
-                          <p className="text-sm font-medium">{selectedDocument.Email || 'Not provided'}</p>
-                        </div>
-                        
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500 mb-1">Contact No</p>
-                          <p className="text-sm font-medium">{selectedDocument['Contact No'] || 'Not provided'}</p>
-                        </div>
-                        
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500 mb-1">Marital Status</p>
-                          <p className="text-sm font-medium">{selectedDocument['Marital Status'] || 'Not provided'}</p>
-                        </div>
-                        
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-xs text-gray-500 mb-1">Created At</p>
-                          <p className="text-sm font-medium">
-                            {new Date(selectedDocument.created_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </p>
-                        </div>
-                      </div>
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+                  {/* Header with gradient */}
+                  <div className="bg-gradient-to-r from-indigo-600 to-blue-500 px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <Dialog.Title as="h3" className="text-lg font-semibold text-white">
+                        Client Details
+                      </Dialog.Title>
+                      <button
+                        onClick={closeDetailsModal}
+                        className="text-white/70 hover:text-white transition-colors rounded-full hover:bg-white/10 p-1"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="p-6">
+                    {selectedDocument && (
+                      <div className="space-y-4">
+                        {/* Client Name Card */}
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-xs text-blue-600 font-medium">Client Name</p>
+                              <p className="text-sm font-semibold text-gray-900">{selectedDocument.Name}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Contact Information */}
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                          <div className="px-4 py-3 border-b border-gray-100">
+                            <h4 className="text-sm font-medium text-gray-900">Contact Information</h4>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 p-4">
+                            <div>
+                              <label className="text-xs text-gray-500">Contact No</label>
+                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['Contact No'] || '-'}>
+                                {selectedDocument['Contact No'] || '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-500">Email</label>
+                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument.Email || '-'}>
+                                {selectedDocument.Email || '-'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Personal Information */}
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                          <div className="px-4 py-3 border-b border-gray-100">
+                            <h4 className="text-sm font-medium text-gray-900">Personal Information</h4>
+                          </div>
+                          <div className="p-4 space-y-3">
+                            <div>
+                              <label className="text-xs text-gray-500">TIN ID</label>
+                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['TIN ID'] || '-'}>
+                                {selectedDocument['TIN ID'] || '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-500">Address</label>
+                              <p className="text-sm font-medium text-gray-900 break-words" title={selectedDocument.Address || '-'}>
+                                {selectedDocument.Address || '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-500">Marital Status</label>
+                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['Marital Status'] || '-'}>
+                                {selectedDocument['Marital Status'] || '-'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Document Information */}
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                          <div className="px-4 py-3 border-b border-gray-100">
+                            <h4 className="text-sm font-medium text-gray-900">Document Information</h4>
+                          </div>
+                          <div className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500">Created On</p>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {new Date(selectedDocument.created_at).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </Dialog.Panel>
               </Transition.Child>
             </div>
