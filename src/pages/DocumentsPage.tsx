@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Fragment } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Dialog, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
-import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, InformationCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 interface Client {
@@ -76,6 +75,14 @@ const DocumentsPage: React.FC = () => {
   });
   const [isUploading, setIsUploading] = useState(false);
   const [viewingDocId, setViewingDocId] = useState<number | null>(null);
+  const [isDeletingDocId, setIsDeletingDocId] = useState<number | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
+
+  // Add state for edit mode and edit form
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Document>>({});
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     fetchClientsWithDocs();
@@ -298,35 +305,25 @@ const DocumentsPage: React.FC = () => {
         }
       });
 
-      // Upload to Supabase storage
-      const fileExt = formData.file.name.split('.').pop();
-      const fileName = `${selectedClient.Name}_${Date.now()}.${fileExt}`;
+      // Upload to Supabase storage using folder structure
+      const fileName = `${Date.now()}_${formData.file.name}`;
       const { error } = await supabase.storage
-        .from('documents')
+        .from('Clients Document')
         .upload(`${selectedClient.Name}/${fileName}`, formData.file);
 
       if (error) throw error;
 
-      // Get the public URL
-      const { data: { publicUrl } } = await supabase.storage
-        .from('documents')
-        .getPublicUrl(`${selectedClient.Name}/${fileName}`);
-
       // Save document metadata to database
       const { error: dbError } = await supabase
-        .from('documents')
-        .insert([
-          {
-            client_name: selectedClient.Name,
-            file_name: fileName,
-            file_path: publicUrl,
-            contact_no: formData['Contact No'],
-            tin_id: formData['TIN ID'],
-            email: formData.Email,
-            address: formData.Address,
-            marital_status: formData['Marital Status']
-          }
-        ]);
+        .from('Documents')
+        .insert([{
+          Name: selectedClient.Name,
+          Address: formData.Address,
+          'TIN ID': formData['TIN ID'],
+          Email: formData.Email,
+          'Contact No': formData['Contact No'],
+          'Marital Status': formData['Marital Status']
+        }]);
 
       if (dbError) throw dbError;
 
@@ -354,77 +351,230 @@ const DocumentsPage: React.FC = () => {
   const closeDetailsModal = () => {
     setIsDetailsModalOpen(false);
     setSelectedDocument(null);
+    setIsEditMode(false);
   };
 
   const handleViewDetails = (doc: Document) => {
     setSelectedDocument(doc);
+    setEditFormData({
+      'Contact No': doc['Contact No'] || '',
+      'TIN ID': doc['TIN ID'] || '',
+      Email: doc.Email || '',
+      Address: doc.Address || '',
+      'Marital Status': doc['Marital Status'] || ''
+    });
     setIsDetailsModalOpen(true);
-  };
-
-  const getDocumentUrl = async (clientName: string) => {
-    try {
-      // Sanitize the client name to match the upload format
-      const sanitizedClientName = clientName
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
-        .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
-      
-      // List all files in the bucket
-      const { data: files, error } = await supabase.storage
-        .from('Clients Document')
-        .list();
-        
-      if (error) {
-        throw error;
-      }
-      
-      console.log('All files in bucket:', files);
-      
-      // Find files that match this client's sanitized name pattern
-      const clientFiles = files.filter(file => 
-        file.name.startsWith(sanitizedClientName + '_')
-      );
-      
-      console.log('Files found for client:', clientFiles);
-      
-      if (clientFiles && clientFiles.length > 0) {
-        // Use the first file that matches
-        const filePath = clientFiles[0].name;
-        console.log('Using file:', filePath);
-        
-        const { data } = await supabase.storage
-          .from('Clients Document')
-          .getPublicUrl(filePath);
-
-        return data.publicUrl;
-      } else {
-        console.error('No files found for this client.');
-        return null;
-      }
-    } catch (error) {
-      console.error('Error getting document URL:', error);
-      return null;
-    }
+    setIsEditMode(false);
   };
 
   const handleViewDocument = async (doc: Document) => {
     try {
       setViewingDocId(doc.id);
-      
       console.log('Document object:', doc);
       
-      const url = await getDocumentUrl(doc.Name);
-      setViewingDocId(null);
+      // Get the client name from the document
+      const clientName = doc.Name;
       
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        alert('Could not retrieve document URL.');
+      // List files in the client's folder
+      const { data: files, error: listError } = await supabase.storage
+        .from('Clients Document')
+        .list(clientName);
+      
+      if (listError) {
+        console.error('Error listing files in folder:', listError);
+        throw listError;
       }
-    } catch (error) {
-      console.error('Error viewing document:', error);
+      
+      if (!files || files.length === 0) {
+        throw new Error(`No files found for client ${clientName}`);
+      }
+      
+      console.log('Files found in folder:', files);
+      
+      // Get the most recent file (assuming the timestamp is in the filename)
+      const mostRecentFile = files.sort((a, b) => {
+        // Extract timestamp from filename (assuming format: timestamp_filename)
+        const timestampA = parseInt(a.name.split('_')[0]) || 0;
+        const timestampB = parseInt(b.name.split('_')[0]) || 0;
+        return timestampB - timestampA; // Sort descending (newest first)
+      })[0];
+      
+      // Download the file instead of just viewing it
+      const { data, error: downloadError } = await supabase.storage
+        .from('Clients Document')
+        .download(`${clientName}/${mostRecentFile.name}`);
+      
+      if (downloadError) {
+        console.error('Error downloading file:', downloadError);
+        throw downloadError;
+      }
+      
+      // Create a download link for the file
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = mostRecentFile.name.split('_').slice(1).join('_'); // Remove timestamp from filename
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
       setViewingDocId(null);
-      alert('Error viewing document. Please try again.');
+      toast.success('Document downloaded successfully!');
+    } catch (error: any) {
+      console.error('Error downloading document:', error);
+      setViewingDocId(null);
+      toast.error('Error downloading document: ' + (error.message || 'Please try again.'));
+    }
+  };
+
+  const handleDeleteDocument = async (doc: Document) => {
+    setDocumentToDelete(doc);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!documentToDelete) return;
+    
+    try {
+      setIsDeletingDocId(documentToDelete.id);
+      console.log('Deleting document:', documentToDelete);
+      
+      // Delete the record from the database
+      const { error: deleteError } = await supabase
+        .from('Documents')
+        .delete()
+        .eq('id', documentToDelete.id);
+      
+      if (deleteError) {
+        console.error('Error deleting from Documents table:', deleteError);
+        throw deleteError;
+      }
+      
+      console.log('Database record deleted successfully');
+      
+      // List files in the client's folder
+      const { data: files, error: listError } = await supabase.storage
+        .from('Clients Document')
+        .list(documentToDelete.Name);
+      
+      if (listError) {
+        console.error('Error listing files in folder:', listError);
+        // Continue even if listing files fails
+      } else if (files && files.length > 0) {
+        console.log('Files found in folder:', files);
+        
+        // Delete all files in the folder
+        for (const file of files) {
+          console.log('Attempting to delete file:', file.name);
+          
+          const { data: deleteData, error: storageError } = await supabase.storage
+            .from('Clients Document')
+            .remove([`${documentToDelete.Name}/${file.name}`]);
+          
+          console.log('Delete result:', deleteData);
+          
+          if (storageError) {
+            console.error(`Error deleting file from storage:`, storageError);
+            // Continue even if storage deletion fails
+          } else {
+            console.log(`Successfully deleted file from storage`);
+          }
+        }
+      } else {
+        console.log('No files found in folder, nothing to delete from storage');
+      }
+      
+      // Update the local state to immediately reflect the deletion
+      setClients(prevClients => {
+        return prevClients.map(client => {
+          if (client.Name === documentToDelete.Name) {
+            return {
+              ...client,
+              documents: client.documents.filter(doc => doc.id !== documentToDelete.id)
+            };
+          }
+          return client;
+        });
+      });
+      
+      // Also refresh from the server
+      await fetchClientsWithDocs();
+      
+      toast.success('Document deleted successfully!');
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      toast.error(error.message || 'Failed to delete document. Please try again.');
+    } finally {
+      setIsDeletingDocId(null);
+      setIsDeleteConfirmOpen(false);
+      setDocumentToDelete(null);
+    }
+  };
+
+  const handleEditDocument = async () => {
+    if (!selectedDocument) return;
+    
+    try {
+      setIsUpdating(true);
+      
+      // Create properly typed update data
+      const updateData = {
+        'Contact No': editFormData['Contact No'] || null,
+        'TIN ID': editFormData['TIN ID'] || null,
+        Email: editFormData.Email || null,
+        Address: editFormData.Address || null,
+        'Marital Status': editFormData['Marital Status'] || null
+      };
+      
+      // Update the document in the database
+      const { error } = await supabase
+        .from('Documents')
+        .update(updateData)
+        .eq('id', selectedDocument.id);
+      
+      if (error) throw error;
+      
+      // Update the local state
+      setClients(prevClients => {
+        return prevClients.map(client => {
+          if (client.Name === selectedDocument.Name) {
+            return {
+              ...client,
+              documents: client.documents.map(doc => {
+                if (doc.id === selectedDocument.id) {
+                  return {
+                    ...doc,
+                    ...updateData
+                  };
+                }
+                return doc;
+              })
+            };
+          }
+          return client;
+        });
+      });
+      
+      // Also refresh from the server to ensure data consistency
+      await fetchClientsWithDocs();
+      
+      // Update the selected document in the modal to show changes immediately
+      const updatedDocument = {
+        ...selectedDocument,
+        ...updateData
+      };
+      setSelectedDocument(updatedDocument);
+      
+      setIsEditMode(false);
+      toast.success('Document updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating document:', error);
+      toast.error(error.message || 'Failed to update document. Please try again.');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -533,17 +683,32 @@ const DocumentsPage: React.FC = () => {
                           onClick={() => handleViewDocument(doc)}
                           className="p-1 text-blue-500 hover:text-blue-700"
                           disabled={viewingDocId === doc.id}
-                          title="View PDF"
+                          title="Download Document"
                         >
                           {viewingDocId === doc.id ? (
-                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                           ) : (
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDocument(doc)}
+                          className="p-1 text-red-500 hover:text-red-700"
+                          disabled={isDeletingDocId === doc.id}
+                          title="Delete Document"
+                        >
+                          {isDeletingDocId === doc.id ? (
+                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <TrashIcon className="h-4 w-4" />
                           )}
                         </button>
                       </div>
@@ -769,7 +934,7 @@ const DocumentsPage: React.FC = () => {
                             <div>
                               <div className="mx-auto w-12 h-12 mb-3 bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
                                 <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                                 </svg>
                               </div>
                               <div className="text-sm text-gray-600">
@@ -803,7 +968,7 @@ const DocumentsPage: React.FC = () => {
                       >
                         {isUploading ? (
                           <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -812,7 +977,7 @@ const DocumentsPage: React.FC = () => {
                         ) : (
                           <>
                             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4 4m0 0L8 8m4-4v12" />
                             </svg>
                             Upload Document
                           </>
@@ -858,14 +1023,27 @@ const DocumentsPage: React.FC = () => {
                   <div className="bg-gradient-to-r from-indigo-600 to-blue-500 px-6 py-4">
                     <div className="flex items-center justify-between">
                       <Dialog.Title as="h3" className="text-lg font-semibold text-white">
-                        Client Details
+                        {isEditMode ? 'Edit Document' : 'Client Details'}
                       </Dialog.Title>
-                      <button
-                        onClick={closeDetailsModal}
-                        className="text-white/70 hover:text-white transition-colors rounded-full hover:bg-white/10 p-1"
-                      >
-                        <XMarkIcon className="h-5 w-5" />
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        {!isEditMode && (
+                          <button
+                            onClick={() => setIsEditMode(true)}
+                            className="text-white/70 hover:text-white transition-colors rounded-full hover:bg-white/10 p-1"
+                            title="Edit Document"
+                          >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          onClick={closeDetailsModal}
+                          className="text-white/70 hover:text-white transition-colors rounded-full hover:bg-white/10 p-1"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -887,83 +1065,229 @@ const DocumentsPage: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Contact Information */}
-                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                          <div className="px-4 py-3 border-b border-gray-100">
-                            <h4 className="text-sm font-medium text-gray-900">Contact Information</h4>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 p-4">
-                            <div>
-                              <label className="text-xs text-gray-500">Contact No</label>
-                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['Contact No'] || '-'}>
-                                {selectedDocument['Contact No'] || '-'}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-gray-500">Email</label>
-                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument.Email || '-'}>
-                                {selectedDocument.Email || '-'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Personal Information */}
-                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                          <div className="px-4 py-3 border-b border-gray-100">
-                            <h4 className="text-sm font-medium text-gray-900">Personal Information</h4>
-                          </div>
-                          <div className="p-4 space-y-3">
-                            <div>
-                              <label className="text-xs text-gray-500">TIN ID</label>
-                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['TIN ID'] || '-'}>
-                                {selectedDocument['TIN ID'] || '-'}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-gray-500">Address</label>
-                              <p className="text-sm font-medium text-gray-900 break-words" title={selectedDocument.Address || '-'}>
-                                {selectedDocument.Address || '-'}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-gray-500">Marital Status</label>
-                              <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['Marital Status'] || '-'}>
-                                {selectedDocument['Marital Status'] || '-'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Document Information */}
-                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-                          <div className="px-4 py-3 border-b border-gray-100">
-                            <h4 className="text-sm font-medium text-gray-900">Document Information</h4>
-                          </div>
-                          <div className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                </div>
+                        {isEditMode ? (
+                          /* Edit Form */
+                          <div className="space-y-4">
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                              <div className="px-4 py-3 border-b border-gray-100">
+                                <h4 className="text-sm font-medium text-gray-900">Edit Contact Information</h4>
+                              </div>
+                              <div className="p-4 space-y-4">
+                                {/* Contact Number */}
                                 <div>
-                                  <p className="text-xs text-gray-500">Created On</p>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {new Date(selectedDocument.created_at).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric'
-                                    })}
-                                  </p>
+                                  <label className="block text-xs text-gray-500 mb-1">Contact No</label>
+                                  <input
+                                    type="text"
+                                    value={editFormData['Contact No'] || ''}
+                                    onChange={(e) => setEditFormData({...editFormData, 'Contact No': e.target.value})}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Contact number"
+                                  />
+                                </div>
+                                
+                                {/* Email */}
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Email</label>
+                                  <input
+                                    type="email"
+                                    value={editFormData.Email || ''}
+                                    onChange={(e) => setEditFormData({...editFormData, Email: e.target.value})}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Email address"
+                                  />
+                                </div>
+                                
+                                {/* TIN ID */}
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">TIN ID</label>
+                                  <input
+                                    type="text"
+                                    value={editFormData['TIN ID'] || ''}
+                                    onChange={(e) => setEditFormData({...editFormData, 'TIN ID': e.target.value})}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="TIN ID"
+                                  />
+                                </div>
+                                
+                                {/* Address */}
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Address</label>
+                                  <textarea
+                                    value={editFormData.Address || ''}
+                                    onChange={(e) => setEditFormData({...editFormData, Address: e.target.value})}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Address"
+                                    rows={2}
+                                  />
+                                </div>
+                                
+                                {/* Marital Status */}
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Marital Status</label>
+                                  <select
+                                    value={editFormData['Marital Status'] || ''}
+                                    onChange={(e) => setEditFormData({...editFormData, 'Marital Status': e.target.value})}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  >
+                                    <option value="">Select status</option>
+                                    <option value="Single">Single</option>
+                                    <option value="Married">Married</option>
+                                    <option value="Widowed">Widowed</option>
+                                    <option value="Divorced">Divorced</option>
+                                  </select>
                                 </div>
                               </div>
                             </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex justify-end space-x-3">
+                              <button
+                                type="button"
+                                onClick={() => setIsEditMode(false)}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                disabled={isUpdating}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleEditDocument}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+                                disabled={isUpdating}
+                              >
+                                {isUpdating ? (
+                                  <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Updating...
+                                  </>
+                                ) : (
+                                  <>Save Changes</>
+                                )}
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          /* View Mode - Contact Information */
+                          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                            <div className="px-4 py-3 border-b border-gray-100">
+                              <h4 className="text-sm font-medium text-gray-900">Contact Information</h4>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 p-4">
+                              <div>
+                                <label className="text-xs text-gray-500">Contact No</label>
+                                <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['Contact No'] || '-'}>
+                                  {selectedDocument['Contact No'] || '-'}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-500">Email</label>
+                                <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument.Email || '-'}>
+                                  {selectedDocument.Email || '-'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {!isEditMode && (
+                          /* Additional Information (only in view mode) */
+                          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                            <div className="px-4 py-3 border-b border-gray-100">
+                              <h4 className="text-sm font-medium text-gray-900">Additional Information</h4>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 p-4">
+                              <div>
+                                <label className="text-xs text-gray-500">TIN ID</label>
+                                <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['TIN ID'] || '-'}>
+                                  {selectedDocument['TIN ID'] || '-'}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="text-xs text-gray-500">Marital Status</label>
+                                <p className="text-sm font-medium text-gray-900 truncate" title={selectedDocument['Marital Status'] || '-'}>
+                                  {selectedDocument['Marital Status'] || '-'}
+                                </p>
+                              </div>
+                              <div className="col-span-2">
+                                <label className="text-xs text-gray-500">Address</label>
+                                <p className="text-sm font-medium text-gray-900" title={selectedDocument.Address || '-'}>
+                                  {selectedDocument.Address || '-'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                       </div>
                     )}
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Delete Confirmation Modal */}
+      <Transition appear show={isDeleteConfirmOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={() => setIsDeleteConfirmOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+                  <div className="bg-red-50 p-6">
+                    <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
+                      <TrashIcon className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="mt-3 text-center">
+                      <Dialog.Title as="h3" className="text-lg font-medium text-gray-900">
+                        Delete Document
+                      </Dialog.Title>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500">
+                          Are you sure you want to delete this document? This action cannot be undone.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 bg-gray-50 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+                      onClick={() => setIsDeleteConfirmOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
+                      onClick={confirmDeleteDocument}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
