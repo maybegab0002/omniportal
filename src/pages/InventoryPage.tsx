@@ -28,6 +28,7 @@ interface LivingWaterProperty {
   "1st MA net of Advance Payment": number;
   "2ndto60th MA": number;
   Year: number;
+  Status?: string;
   created_at?: string;
 }
 
@@ -62,6 +63,7 @@ interface HavahillsProperty {
   'NEW TERM': string;
   'PASALO PRICE': number;
   'NEW MA': number;
+  Status?: string;
 }
 
 type Property = LivingWaterProperty | HavahillsProperty;
@@ -79,10 +81,17 @@ const projects = [
   }
 ];
 
+const statusOptions = [
+  { id: 'all', name: 'All Statuses' },
+  { id: 'available', name: 'Available' },
+  { id: 'sold', name: 'Sold' }
+];
+
 const InventoryPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState(projects[0]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
 
@@ -265,7 +274,29 @@ const InventoryPage: React.FC = () => {
         havahillsProperty.Broker
       ].some(field => field?.toString().toLowerCase().includes(searchLower));
     }
+  }).filter((property) => {
+    if (statusFilter === 'all') return true;
+    
+    // Case-insensitive comparison for status
+    const propertyStatus = property.Status?.toLowerCase() || '';
+    const filterStatus = statusFilter.toLowerCase();
+    return propertyStatus === filterStatus;
   });
+
+  // Debug logging for status filtering
+  useEffect(() => {
+    if (statusFilter !== 'all') {
+      console.log('Status filter:', statusFilter);
+      console.log('Properties with matching status:', properties.filter(p => 
+        (p.Status?.toLowerCase() || '') === statusFilter.toLowerCase()
+      ).length);
+      
+      // Log the first few properties and their status values
+      console.log('Sample property status values:', 
+        properties.slice(0, 5).map(p => p.Status || 'undefined')
+      );
+    }
+  }, [statusFilter, properties]);
 
   console.log('Filtered properties length:', filteredProperties.length);
 
@@ -302,6 +333,7 @@ const InventoryPage: React.FC = () => {
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Advance Payment</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">1st MA net of Advance Payment</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">2ndto60th MA</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Status</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -329,6 +361,7 @@ const InventoryPage: React.FC = () => {
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["Advance Payment"])}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["1st MA net of Advance Payment"])}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["2ndto60th MA"])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Status}</td>
               </tr>
             ))}
           </tbody>
@@ -377,6 +410,7 @@ const InventoryPage: React.FC = () => {
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">NEW TERM</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">PASALO PRICE</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">NEW MA</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Status</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -411,6 +445,7 @@ const InventoryPage: React.FC = () => {
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['NEW TERM']}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['PASALO PRICE'])}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['NEW MA'])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Status}</td>
               </tr>
             ))}
           </tbody>
@@ -453,6 +488,75 @@ const InventoryPage: React.FC = () => {
       window.removeEventListener('resize', checkTableWidth);
     };
   }, [properties, selectedProject]);
+
+  useEffect(() => {
+    // Add a style tag to hide the bottom scrollbar but keep the functionality
+    const styleElement = document.createElement('style');
+    styleElement.setAttribute('data-custom-styles', 'true');
+    styleElement.textContent = `
+      .overflow-auto::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      .overflow-auto::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 5px;
+      }
+      .overflow-auto::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 5px;
+        border: 2px solid #f1f1f1;
+      }
+      .overflow-auto::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+    `;
+    document.head.appendChild(styleElement);
+
+    return () => {
+      if (styleElement.parentNode) {
+        styleElement.parentNode.removeChild(styleElement);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Create a style element
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .inventory-table-container {
+        overflow-x: scroll !important;
+        scrollbar-width: auto;
+      }
+      
+      .inventory-table-container::-webkit-scrollbar {
+        height: 10px;
+        display: block;
+      }
+      
+      .inventory-table-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 5px;
+      }
+      
+      .inventory-table-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 5px;
+      }
+      
+      .inventory-table-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+    `;
+    
+    // Add the style element to the head
+    document.head.appendChild(style);
+    
+    // Clean up function to remove the style when component unmounts
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   useEffect(() => {
     // Remove any existing scrollbars first
@@ -549,75 +653,6 @@ const InventoryPage: React.FC = () => {
     };
   }, [properties, selectedProject, filteredProperties]);
 
-  useEffect(() => {
-    // Add a style tag to hide the bottom scrollbar but keep the functionality
-    const styleElement = document.createElement('style');
-    styleElement.setAttribute('data-custom-styles', 'true');
-    styleElement.textContent = `
-      .overflow-auto::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-      }
-      .overflow-auto::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 5px;
-      }
-      .overflow-auto::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 5px;
-        border: 2px solid #f1f1f1;
-      }
-      .overflow-auto::-webkit-scrollbar-thumb:hover {
-        background: #a8a8a8;
-      }
-    `;
-    document.head.appendChild(styleElement);
-
-    return () => {
-      if (styleElement.parentNode) {
-        styleElement.parentNode.removeChild(styleElement);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    // Create a style element
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .inventory-table-container {
-        overflow-x: scroll !important;
-        scrollbar-width: auto;
-      }
-      
-      .inventory-table-container::-webkit-scrollbar {
-        height: 10px;
-        display: block;
-      }
-      
-      .inventory-table-container::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 5px;
-      }
-      
-      .inventory-table-container::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 5px;
-      }
-      
-      .inventory-table-container::-webkit-scrollbar-thumb:hover {
-        background: #555;
-      }
-    `;
-    
-    // Add the style element to the head
-    document.head.appendChild(style);
-    
-    // Clean up function to remove the style when component unmounts
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
-
   // Add debug logging for data types
   useEffect(() => {
     if (properties.length > 0) {
@@ -646,67 +681,10 @@ const InventoryPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-white p-4 rounded-lg shadow">
-        <div className="w-full sm:w-72">
-          <Listbox value={selectedProject} onChange={setSelectedProject}>
-            <div className="relative mt-1">
-              <Listbox.Label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Project
-              </Listbox.Label>
-              <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-3 pl-4 pr-10 text-left border border-gray-300 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-opacity-75 focus-visible:ring-offset-2 sm:text-sm transition-all duration-200 hover:bg-gray-50">
-                <span className="flex items-center">
-                  <span className="mr-2 text-gray-500">
-                    {selectedProject.icon("h-5 w-5")}
-                  </span>
-                  <span className="block truncate">{selectedProject.name}</span>
-                </span>
-                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                  <ChevronUpDownIcon
-                    className="h-5 w-5 text-gray-400"
-                    aria-hidden="true"
-                  />
-                </span>
-              </Listbox.Button>
-              <Transition
-                as={Fragment}
-                leave="transition ease-in duration-100"
-                leaveFrom="opacity-100"
-                leaveTo="opacity-0"
-              >
-                <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                  {projects.map((project) => (
-                    <Listbox.Option
-                      key={project.id}
-                      className={({ active }) =>
-                        `relative cursor-pointer select-none py-2 pl-10 pr-4 transition-colors duration-200 ${
-                          active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'
-                        }`
-                      }
-                      value={project}
-                    >
-                      {({ selected }) => (
-                        <>
-                          <span className={`flex items-center truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                            <span className="mr-2 text-gray-500">
-                              {project.icon("h-5 w-5")}
-                            </span>
-                            {project.name}
-                          </span>
-                          {selected ? (
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">
-                              <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                    </Listbox.Option>
-                  ))}
-                </Listbox.Options>
-              </Transition>
-            </div>
-          </Listbox>
-        </div>
-        
+      <h2 className="text-2xl font-semibold text-gray-900 mb-6">Inventory Management</h2>
+      
+      <div className="flex flex-col sm:flex-row gap-4 mb-6 justify-between">
+        {/* Search Bar - On the left */}
         <div className="w-full sm:w-96">
           <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
             Search
@@ -734,6 +712,130 @@ const InventoryPage: React.FC = () => {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
+          </div>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Status Filter Dropdown - Now on the right */}
+          <div className="w-full sm:w-72">
+            <Listbox value={statusFilter} onChange={setStatusFilter}>
+              <div className="relative mt-1">
+                <Listbox.Label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </Listbox.Label>
+                <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-3 pl-4 pr-10 text-left border border-gray-300 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-opacity-75 focus-visible:ring-offset-2 sm:text-sm transition-all duration-200 hover:bg-gray-50">
+                  <span className="flex items-center">
+                    <span className="mr-2 text-gray-500">
+                      {/* Add an icon here if needed */}
+                    </span>
+                    <span className="block truncate">{statusOptions.find(option => option.id === statusFilter)?.name}</span>
+                  </span>
+                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                    <ChevronUpDownIcon
+                      className="h-5 w-5 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </Listbox.Button>
+                <Transition
+                  as={Fragment}
+                  leave="transition ease-in duration-100"
+                  leaveFrom="opacity-100"
+                  leaveTo="opacity-0"
+                >
+                  <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                    {statusOptions.map((option) => (
+                      <Listbox.Option
+                        key={option.id}
+                        className={({ active }) =>
+                          `relative cursor-pointer select-none py-2 pl-10 pr-4 transition-colors duration-200 ${
+                            active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'
+                          }`
+                        }
+                        value={option.id}
+                      >
+                        {({ selected }) => (
+                          <>
+                            <span className={`flex items-center truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                              <span className="mr-2 text-gray-500">
+                                {/* Add an icon here if needed */}
+                              </span>
+                              {option.name}
+                            </span>
+                            {selected ? (
+                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">
+                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </Listbox.Option>
+                    ))}
+                  </Listbox.Options>
+                </Transition>
+              </div>
+            </Listbox>
+          </div>
+          
+          {/* Project Selector Dropdown - Now on the far right */}
+          <div className="w-full sm:w-72">
+            <Listbox value={selectedProject} onChange={setSelectedProject}>
+              <div className="relative mt-1">
+                <Listbox.Label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project
+                </Listbox.Label>
+                <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-3 pl-4 pr-10 text-left border border-gray-300 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-opacity-75 focus-visible:ring-offset-2 sm:text-sm transition-all duration-200 hover:bg-gray-50">
+                  <span className="flex items-center">
+                    <span className="mr-2 text-gray-500">
+                      {selectedProject.icon("h-5 w-5")}
+                    </span>
+                    <span className="block truncate">{selectedProject.name}</span>
+                  </span>
+                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                    <ChevronUpDownIcon
+                      className="h-5 w-5 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </Listbox.Button>
+                <Transition
+                  as={Fragment}
+                  leave="transition ease-in duration-100"
+                  leaveFrom="opacity-100"
+                  leaveTo="opacity-0"
+                >
+                  <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                    {projects.map((project) => (
+                      <Listbox.Option
+                        key={project.id}
+                        className={({ active }) =>
+                          `relative cursor-pointer select-none py-2 pl-10 pr-4 transition-colors duration-200 ${
+                            active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'
+                          }`
+                        }
+                        value={project}
+                      >
+                        {({ selected }) => (
+                          <>
+                            <span className={`flex items-center truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                              <span className="mr-2 text-gray-500">
+                                {project.icon("h-5 w-5")}
+                              </span>
+                              {project.name}
+                            </span>
+                            {selected ? (
+                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">
+                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </Listbox.Option>
+                    ))}
+                  </Listbox.Options>
+                </Transition>
+              </div>
+            </Listbox>
           </div>
         </div>
       </div>
