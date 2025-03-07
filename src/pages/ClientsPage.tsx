@@ -9,8 +9,6 @@ interface Client {
   Name: string;
   Email?: string;
   auth_id?: string;
-  firstName?: string;
-  lastName?: string;
 }
 
 interface CreateAccountModalProps {
@@ -206,7 +204,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
                             id="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
+                            className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
                             placeholder="Enter client's email address"
                             required
                           />
@@ -228,7 +226,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
                             id="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
+                            className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
                             placeholder="Enter a secure password"
                             required
                             minLength={6}
@@ -324,6 +322,7 @@ const ClientsPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [sortBy, setSortBy] = useState<'firstName' | 'lastName'>('firstName');
   
   const itemsPerPage = 15;
   const projects = ['Living Water Subdivision', 'Havahills Estate'];
@@ -333,6 +332,11 @@ const ClientsPage: React.FC = () => {
     fetchLivingWaterOwners();
     fetchHavahillsBuyers();
   }, []);
+
+  useEffect(() => {
+    console.log('Sort by changed to:', sortBy);
+    fetchClients();
+  }, [sortBy]);
 
   const fetchLivingWaterOwners = async () => {
     try {
@@ -408,24 +412,57 @@ const ClientsPage: React.FC = () => {
     setCurrentPage(1); // Reset to first page when filters change
   }, [clients, searchQuery, selectedProject, livingWaterOwners, havahillsBuyers]);
 
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
   const fetchClients = async () => {
     try {
       setLoading(true);
+      console.log('Fetching clients with sort by:', sortBy);
       
+      // Always fetch by Name since we don't have separate firstName/lastName columns
       const { data, error } = await supabase
         .from('Clients')
-        .select('id, Name, Email, auth_id')  // Added Email and auth_id fields to fetch
+        .select('id, Name, Email, auth_id')
         .order('Name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
 
-      setClients(data || []);
-      setFilteredClients(data || []);
-      setTotalPages(Math.ceil((data?.length || 0) / itemsPerPage));
+      console.log('Fetched clients data:', data);
+      
+      // Sort the data client-side based on first or last name
+      let sortedData = [...(data || [])];
+      console.log('Applying client-side sorting for:', sortBy);
+      sortedData.sort((a, b) => {
+        // Make sure Name exists and is a string
+        const nameA = typeof a.Name === 'string' ? a.Name : '';
+        const nameB = typeof b.Name === 'string' ? b.Name : '';
+        
+        const nameParts_a = nameA.split(' ');
+        const nameParts_b = nameB.split(' ');
+        
+        console.log('Comparing names:', nameA, nameB);
+        
+        if (sortBy === 'firstName') {
+          // Compare first parts of names
+          const firstName_a = nameParts_a.length > 0 ? nameParts_a[0] : '';
+          const firstName_b = nameParts_b.length > 0 ? nameParts_b[0] : '';
+          console.log('First names:', firstName_a, firstName_b);
+          return firstName_a.localeCompare(firstName_b);
+        } else if (sortBy === 'lastName') {
+          // Compare last parts of names
+          const lastName_a = nameParts_a.length > 1 ? nameParts_a[nameParts_a.length - 1] : '';
+          const lastName_b = nameParts_b.length > 1 ? nameParts_b[nameParts_b.length - 1] : '';
+          console.log('Last names:', lastName_a, lastName_b);
+          return lastName_a.localeCompare(lastName_b);
+        }
+        return 0;
+      });
+      console.log('Sorted data:', sortedData.map(c => c.Name));
+      
+      setClients(sortedData);
+      setFilteredClients(sortedData);
+      setTotalPages(Math.ceil((sortedData?.length || 0) / itemsPerPage));
     } catch (error) {
       console.error('Error fetching clients:', error);
       setError('Failed to fetch clients');
@@ -476,7 +513,7 @@ const ClientsPage: React.FC = () => {
             />
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" />
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
               </svg>
             </div>
             {searchQuery && (
@@ -489,6 +526,28 @@ const ClientsPage: React.FC = () => {
                 </svg>
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Right-aligned dropdowns */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          {/* Sort Dropdown */}
+          <div className="w-full sm:w-48">
+            <div className="relative rounded-lg shadow-sm">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'firstName' | 'lastName')}
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 appearance-none cursor-pointer shadow-sm"
+              >
+                <option value="firstName">Sort by First Name</option>
+                <option value="lastName">Sort by Last Name</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Project Filter Dropdown */}
@@ -507,7 +566,7 @@ const ClientsPage: React.FC = () => {
                 ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -612,7 +671,7 @@ const ClientsPage: React.FC = () => {
                             >
                               <span className="sr-only">Previous</span>
                               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                               </svg>
                             </button>
                             <div className="flex items-center">
