@@ -670,8 +670,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
       // Update the first_login flag in the Clients table
       const updateData: Record<string, boolean> = {
-        'first_login': false,
-        'first-login': false
+        'first_login': false
       };
       
       console.log('Updating client with data:', updateData);

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, Fragment } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Dialog, Transition } from '@headlessui/react';
-import { XMarkIcon, InformationCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, InformationCircleIcon, TrashIcon, DocumentTextIcon, UserGroupIcon, DocumentCheckIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 interface Client {
@@ -84,6 +84,10 @@ const DocumentsPage: React.FC = () => {
   const [editFormData, setEditFormData] = useState<Partial<Document>>({});
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Add state for clients with documents count
+  const [clientsWithDocsCount, setClientsWithDocsCount] = useState<number>(0);
+  const [totalDocumentsCount, setTotalDocumentsCount] = useState<number>(0);
+
   useEffect(() => {
     fetchClientsWithDocs();
     fetchProjectOwners();
@@ -100,6 +104,18 @@ const DocumentsPage: React.FC = () => {
         propertyDetails: clientProperties[client.Name] || []
       };
     });
+
+    // Count clients with at least one document
+    const clientsWithDocuments = clients.filter(client => 
+      client.documents && client.documents.length > 0
+    ).length;
+    setClientsWithDocsCount(clientsWithDocuments);
+    
+    // Count total documents across all clients
+    const totalDocs = clients.reduce((total, client) => 
+      total + (client.documents ? client.documents.length : 0), 0
+    );
+    setTotalDocumentsCount(totalDocs);
 
     // Sort based on toggle
     const sortedClients = [...processedClients].sort((a, b) => 
@@ -598,7 +614,69 @@ const DocumentsPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Documents</h1>
+      {/* Enhanced Stats Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-3">Documents</h1>
+        
+        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+          <div className="flex items-center mb-2">
+            <ChartBarIcon className="h-5 w-5 text-gray-500 mr-2" />
+            <h2 className="text-lg font-medium">Document Statistics</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+            {/* Clients with documents */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 flex items-center justify-between border border-blue-100">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Clients with Documents</p>
+                <div className="flex items-baseline">
+                  <span className="text-2xl font-bold text-blue-700">{clientsWithDocsCount}</span>
+                  <span className="text-sm text-blue-600 ml-1">/ {clients.length}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {Math.round((clientsWithDocsCount / (clients.length || 1)) * 100)}% coverage
+                </p>
+              </div>
+              <div className="bg-blue-100 p-3 rounded-full">
+                <DocumentCheckIcon className="h-8 w-8 text-blue-600" />
+              </div>
+            </div>
+            
+            {/* Total documents */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 flex items-center justify-between border border-purple-100">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Total Documents</p>
+                <div className="flex items-baseline">
+                  <span className="text-2xl font-bold text-purple-700">{totalDocumentsCount}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {(totalDocumentsCount / (clients.length || 1)).toFixed(1)} docs per client
+                </p>
+              </div>
+              <div className="bg-purple-100 p-3 rounded-full">
+                <DocumentTextIcon className="h-8 w-8 text-purple-600" />
+              </div>
+            </div>
+            
+            {/* Clients without documents */}
+            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-4 flex items-center justify-between border border-amber-100">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Clients without Documents</p>
+                <div className="flex items-baseline">
+                  <span className="text-2xl font-bold text-amber-700">{clients.length - clientsWithDocsCount}</span>
+                  <span className="text-sm text-amber-600 ml-1">/ {clients.length}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {Math.round(((clients.length - clientsWithDocsCount) / (clients.length || 1)) * 100)}% pending
+                </p>
+              </div>
+              <div className="bg-amber-100 p-3 rounded-full">
+                <UserGroupIcon className="h-8 w-8 text-amber-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       
       <div className="flex gap-4 mb-4">
         {/* Search Bar */}

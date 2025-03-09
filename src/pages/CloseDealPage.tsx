@@ -8,8 +8,8 @@ const CloseDealPage: React.FC = () => {
     { id: 'soa', name: 'SOA' },
     { id: 'payment', name: 'Payment' },
     { id: 'balance', name: 'Balance Creation' },
-    { id: 'account', name: 'Account Creation' },
-    { id: 'finish', name: 'Finish' }
+    { id: 'finish', name: 'Finish' },
+    { id: 'account', name: 'Account Creation' }
   ];
 
   // State to track the current step (0-indexed)
@@ -30,45 +30,76 @@ const CloseDealPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gray-50">
       <h2 className="text-2xl font-semibold text-gray-900 mb-6">Close Deal</h2>
       
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
+      {/* Futuristic Progress Bar - Minimalist Tech Style */}
+      <div className="mb-12 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+        {/* Progress percentage and step name */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center">
+            <div className="w-10 h-10 flex items-center justify-center bg-black text-white rounded-md font-mono">
+              {currentStep + 1}/{steps.length}
+            </div>
+            <div className="ml-4 font-semibold text-lg">{steps[currentStep].name}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold">
+              {Math.round((currentStep / (steps.length - 1)) * 100)}%
+            </div>
+            <div className="text-xs text-gray-500 uppercase tracking-wider">Complete</div>
+          </div>
+        </div>
+        
+        {/* Horizontal progress line */}
+        <div className="relative h-1 bg-gray-200 mb-8">
+          {/* Main progress line */}
+          <div 
+            className="absolute top-0 left-0 h-full bg-black transition-all duration-500 ease-out"
+            style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+          ></div>
+          
+          {/* Animated dot at the end of progress */}
+          <div 
+            className="absolute top-0 h-3 w-3 bg-black rounded-full -mt-1 transition-all duration-500 ease-out"
+            style={{ left: `${(currentStep / (steps.length - 1)) * 100}%` }}
+          ></div>
+        </div>
+        
+        {/* Step indicators */}
+        <div className="grid grid-cols-7 gap-2">
           {steps.map((step, index) => (
-            <div key={step.id} className="flex flex-col items-center">
-              <div 
-                className={`w-8 h-8 flex items-center justify-center rounded-full ${index <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'} ${index === currentStep ? 'ring-2 ring-blue-300' : ''}`}
-              >
-                {index < currentStep ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  index + 1
-                )}
+            <div 
+              key={step.id} 
+              className={`
+                relative py-3 px-1 text-center transition-all duration-300
+                ${index === currentStep ? 'bg-black text-white' : ''}
+                ${index < currentStep ? 'text-black' : 'text-gray-400'}
+                ${index > currentStep ? 'text-gray-300' : ''}
+                hover:bg-gray-100 cursor-pointer
+              `}
+              onClick={() => setCurrentStep(index)}
+            >
+              <div className="text-xs uppercase tracking-wider font-mono mb-1">
+                Step {index + 1}
               </div>
-              <span className={`text-xs mt-1 ${index <= currentStep ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+              <div className="text-xs font-medium truncate">
                 {step.name}
-              </span>
+              </div>
+              {index < currentStep && (
+                <svg className="w-4 h-4 absolute top-1 right-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
             </div>
           ))}
-        </div>
-        <div className="relative pt-1">
-          <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-            <div 
-              style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }} 
-              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-600 transition-all duration-300"
-            ></div>
-          </div>
         </div>
       </div>
 
       {/* Current Step Content */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Step {currentStep + 1}: {steps[currentStep].name}
+          {steps[currentStep].name}
         </h3>
         <p className="text-gray-600 mb-4">
           {steps[currentStep].id === 'purchasing' && 'Complete the purchasing information for this deal.'}
@@ -89,14 +120,20 @@ const CloseDealPage: React.FC = () => {
         <button
           onClick={handlePreviousStep}
           disabled={currentStep === 0}
-          className={`px-4 py-2 rounded ${currentStep === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-600 text-white hover:bg-gray-700'}`}
+          className={`
+            px-6 py-2 font-medium rounded-md transition-all duration-200
+            ${currentStep === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-black text-white hover:bg-gray-800'}
+          `}
         >
           Previous
         </button>
         <button
           onClick={handleNextStep}
           disabled={currentStep === steps.length - 1}
-          className={`px-4 py-2 rounded ${currentStep === steps.length - 1 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+          className={`
+            px-6 py-2 font-medium rounded-md transition-all duration-200
+            ${currentStep === steps.length - 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-black text-white hover:bg-gray-800'}
+          `}
         >
           {currentStep === steps.length - 1 ? 'Complete' : 'Next'}
         </button>
