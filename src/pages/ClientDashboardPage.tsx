@@ -1094,77 +1094,135 @@ const ClientDashboardPage: React.FC = () => {
     }
   };
 
-  // Function to get document URL from storage
-  const getDocumentUrl = async (clientName: string) => {
-    try {
-      console.log("Getting document URL for client:", clientName);
-      
-      // Sanitize the client name to match the upload format
-      const sanitizedClientName = clientName
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
-        .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
-      
-      console.log("Sanitized client name:", sanitizedClientName);
-      
-      // List all files in the bucket
-      const { data: files, error } = await supabase.storage
-        .from('Clients Document')
-        .list();
-        
-      if (error) {
-        console.error("Error listing files:", error);
-        throw error;
-      }
-      
-      console.log('All files in bucket:', files);
-      
-      // Find files that match this client's sanitized name pattern
-      const clientFiles = files.filter(file => 
-        file.name.startsWith(sanitizedClientName + '_')
-      );
-      
-      console.log('Files found for client:', clientFiles);
-      
-      if (clientFiles && clientFiles.length > 0) {
-        // Use the first file that matches
-        const filePath = clientFiles[0].name;
-        console.log('Using file:', filePath);
-        
-        const { data } = await supabase.storage
-          .from('Clients Document')
-          .getPublicUrl(filePath);
-
-        console.log("Public URL:", data.publicUrl);
-        return data.publicUrl;
-      } else {
-        console.error('No files found for this client.');
-        return null;
-      }
-    } catch (error) {
-      console.error('Error getting document URL:', error);
-      return null;
-    }
-  };
-
-  // Function to handle document download
-  const handleViewDocument = async () => {
+  // Function to get and download document for a client
+  const handleDownloadDocument = async () => {
     if (!clientDocument) return;
     
     try {
-      console.log("Attempting to view document for client:", clientDocument.Name);
-      const url = await getDocumentUrl(clientDocument.Name);
+      setIsLoadingDocument(true); // Set loading state to true when download starts
+      console.log("Attempting to download document for client:", clientDocument.Name);
       
-      if (url) {
-        console.log("Opening document URL:", url);
-        window.open(url, '_blank');
+      // List files in the client's folder
+      const { data: files, error: listError } = await supabase.storage
+        .from('Clients Document')
+        .list(clientDocument.Name);
+      
+      if (listError) {
+        console.error('Error listing files in folder:', listError);
+        throw listError;
+      }
+      
+      console.log('Files found in folder:', files);
+      
+      if (!files || files.length === 0) {
+        // If no files found in the folder, try the old method of searching by name prefix
+        console.log("No files found in client folder, trying alternative method...");
+        
+        // Sanitize the client name to match the upload format
+        const sanitizedClientName = clientDocument.Name
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+          .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
+        
+        console.log("Sanitized client name:", sanitizedClientName);
+        
+        // List all files in the root of the bucket
+        const { data: rootFiles, error } = await supabase.storage
+          .from('Clients Document')
+          .list();
+          
+        if (error) {
+          console.error("Error listing files:", error);
+          throw error;
+        }
+        
+        console.log('All files in bucket root:', rootFiles);
+        
+        // Find files that match this client's sanitized name pattern
+        const clientFiles = rootFiles.filter(file => 
+          file.name.startsWith(sanitizedClientName + '_')
+        );
+        
+        console.log('Files found for client in root:', clientFiles);
+        
+        if (clientFiles && clientFiles.length > 0) {
+          // Use the first file that matches
+          const filePath = clientFiles[0].name;
+          console.log('Using file from root:', filePath);
+          
+          // Get the download URL
+          const { data, error: downloadError } = await supabase.storage
+            .from('Clients Document')
+            .download(filePath);
+  
+          if (downloadError) {
+            console.error("Error downloading file:", downloadError);
+            throw downloadError;
+          }
+          
+          if (data) {
+            // Create a download link
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filePath; // Use the original filename
+            document.body.appendChild(a);
+            a.click();
+            
+            // Clean up
+            setTimeout(() => {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }, 100);
+            
+            console.log("Document downloaded successfully");
+          }
+        } else {
+          console.error('No files found for this client.');
+          alert('Document not found. Please contact support.');
+        }
       } else {
-        console.error("Document URL not found");
-        alert('Document not found. Please contact support.');
+        // Get the most recent file (assuming the timestamp is in the filename)
+        const mostRecentFile = files.sort((a, b) => {
+          // Extract timestamp from filename (assuming format: timestamp_filename)
+          const timestampA = parseInt(a.name.split('_')[0]) || 0;
+          const timestampB = parseInt(b.name.split('_')[0]) || 0;
+          return timestampB - timestampA; // Sort descending (newest first)
+        })[0];
+        
+        console.log('Most recent file:', mostRecentFile);
+        
+        // Download the file from the client's folder
+        const { data, error: downloadError } = await supabase.storage
+          .from('Clients Document')
+          .download(`${clientDocument.Name}/${mostRecentFile.name}`);
+        
+        if (downloadError) {
+          console.error('Error downloading file:', downloadError);
+          throw downloadError;
+        }
+        
+        // Create a download link for the file
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = mostRecentFile.name.split('_').slice(1).join('_'); // Remove timestamp from filename
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+        
+        console.log("Document downloaded successfully");
       }
     } catch (error) {
-      console.error('Error viewing document:', error);
-      alert('Error accessing document. Please try again later.');
+      console.error('Error downloading document:', error);
+      alert('Error downloading document. Please try again later.');
+    } finally {
+      setIsLoadingDocument(false); // Reset loading state when download completes or fails
     }
   };
 
@@ -1563,21 +1621,32 @@ const ClientDashboardPage: React.FC = () => {
                     
                     <div className="mt-4 flex justify-end">
                       <button
-                        onClick={handleViewDocument}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
-                        disabled={!clientDocument}
+                        onClick={handleDownloadDocument}
+                        className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 shadow-sm ${isLoadingDocument ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 relative overflow-hidden`}
+                        disabled={!clientDocument || isLoadingDocument}
                       >
+                        {isLoadingDocument && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-blue-600 bg-opacity-90">
+                            <div className="flex items-center">
+                              <svg className="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span>Downloading...</span>
+                            </div>
+                          </div>
+                        )}
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        View Document
+                        Download Document
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p className="text-gray-500 mb-2">No document information found</p>
                     <p className="text-sm text-gray-400">Your document information will appear here once uploaded by an administrator.</p>
@@ -1626,7 +1695,7 @@ const ClientDashboardPage: React.FC = () => {
                     className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                     Create New Ticket
                   </button>
@@ -1709,8 +1778,8 @@ const ClientDashboardPage: React.FC = () => {
                   Profile
                 </a>
                 <a href="#" className="flex items-center p-3 text-gray-700 rounded-xl hover:bg-blue-50 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5 mr-3 text-blue-600">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Help & Support
                 </a>
