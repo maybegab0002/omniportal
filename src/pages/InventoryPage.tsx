@@ -1,7 +1,8 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { Listbox, Transition } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon, HomeIcon, HomeModernIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, ChevronUpDownIcon, HomeIcon, HomeModernIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { supabase } from '../lib/supabaseClient';
+import { Dialog, DialogTitle } from '@headlessui/react';
 
 interface LivingWaterProperty {
   id: number;
@@ -11,6 +12,7 @@ interface LivingWaterProperty {
   "First Due Month": string;
   Amount: number;
   Realty: string;
+  "Sales Director": string;
   Owner: string;
   "Date of Reservation": string;
   "Seller Name": string;
@@ -22,9 +24,7 @@ interface LivingWaterProperty {
   TSP: number;
   "MISC FEE": number;
   "Net Contract Price": number;
-  Term: number;
-  "First MA": number;
-  "Advance Payment": number;
+  "Monthly Amortization": number;
   "1st MA net of Advance Payment": number;
   "2ndto60th MA": number;
   Year: number;
@@ -34,35 +34,35 @@ interface LivingWaterProperty {
 
 interface HavahillsProperty {
   id: number;
-  Block: number;
-  Lot: number;
+  Block: string | number;
+  Lot: string | number;
   Due: string;
-  'Date of Reservation': string;
-  'First Due': string;
+  "Date of Reservation": string;
+  "First Due": string;
   Terms: string;
   Amount: number;
   Realty: string;
-  'Buyers Name': string;
-  'Seller Name': string;
-  'Sales Director': string;
+  "Buyers Name": string;
+  "Seller Name": string;
+  "Sales Director": string;
   Broker: string;
-  'Lot Size': number;
+  "Lot Size": number;
   Price: number;
-  'Payment Scheme': string;
-  'Vat Status': string;
+  "Payment Scheme": string;
+  "Vat Status": string;
   TSP: number;
-  'Mode of Payment': string;
+  "Mode of Payment": string;
   Reservation: number;
-  'Comm Price': number;
-  'Misc Fee': number;
+  "Comm Price": number;
+  "Misc Fee": number;
   Vat: number;
   TCP: number;
-  '1st MA': number;
-  '1ST MA with Holding Fee': number;
-  '2ND TO 48TH MA': number;
-  'NEW TERM': string;
-  'PASALO PRICE': number;
-  'NEW MA': number;
+  "1st MA": number;
+  "1ST MA with Holding Fee": number;
+  "2ND TO 48TH MA": number;
+  "NEW TERM": string;
+  "PASALO PRICE": number;
+  "NEW MA": number;
   Status?: string;
 }
 
@@ -94,6 +94,10 @@ const InventoryPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [currentProperty, setCurrentProperty] = useState<Property | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProperties();
@@ -148,73 +152,9 @@ const InventoryPage: React.FC = () => {
       }
 
       // Transform numeric strings to numbers based on property type
-      const transformedData = data?.map(item => {
-        if (selectedProject.id === 'LivingWater') {
-          // Log a sample of raw numeric values to debug
-          if (data.length > 0 && item.id === data[0].id) {
-            console.log('Sample raw numeric values:', {
-              TCP: item.TCP,
-              TSP: item.TSP,
-              "Net Contract Price": item["Net Contract Price"]
-            });
-          }
-          
-          return {
-            ...item,
-            Amount: parseNumericValue(item.Amount),
-            Reservation: parseNumericValue(item.Reservation),
-            "Lot Area": parseNumericValue(item["Lot Area"]),
-            "Price per sqm": parseNumericValue(item["Price per sqm"]),
-            TCP: parseNumericValue(item.TCP),
-            TSP: parseNumericValue(item.TSP),
-            "MISC FEE": parseNumericValue(item["MISC FEE"]),
-            "Net Contract Price": parseNumericValue(item["Net Contract Price"]),
-            Term: parseInt(String(item.Term)) || 0,
-            "First MA": parseNumericValue(item["First MA"]),
-            "Advance Payment": parseNumericValue(item["Advance Payment"]),
-            "1st MA net of Advance Payment": parseNumericValue(item["1st MA net of Advance Payment"]),
-            "2ndto60th MA": parseNumericValue(item["2ndto60th MA"]),
-            Year: parseInt(String(item.Year)) || 0
-          } as LivingWaterProperty;
-        } else {
-          return {
-            ...item,
-            Amount: parseNumericValue(item.Amount),
-            Reservation: parseNumericValue(item.Reservation),
-            'Lot Size': parseNumericValue(item['Lot Size']),
-            Price: parseNumericValue(item.Price),
-            TSP: parseNumericValue(item.TSP),
-            'Comm Price': parseNumericValue(item['Comm Price']),
-            'Misc Fee': parseNumericValue(item['Misc Fee']),
-            Vat: parseNumericValue(item.Vat),
-            TCP: parseNumericValue(item.TCP),
-            '1st MA': parseNumericValue(item['1st MA']),
-            '1ST MA with Holding Fee': parseNumericValue(item['1ST MA with Holding Fee']),
-            '2ND TO 48TH MA': parseNumericValue(item['2ND TO 48TH MA']),
-            'PASALO PRICE': parseNumericValue(item['PASALO PRICE']),
-            'NEW MA': parseNumericValue(item['NEW MA'])
-          } as HavahillsProperty;
-        }
-      }) || [];
+      const transformedData = transformData(data);
 
-      // Sort the data by Block and Lot
-      const sortedData = transformedData.sort((a, b) => {
-        // Convert Block to number for comparison (remove any non-numeric characters)
-        const blockA = parseInt(String(a.Block).replace(/\D/g, '') || '0');
-        const blockB = parseInt(String(b.Block).replace(/\D/g, '') || '0');
-        
-        // If blocks are different, sort by block
-        if (blockA !== blockB) {
-          return blockA - blockB;
-        }
-        
-        // If blocks are the same, sort by lot
-        const lotA = parseInt(String(a.Lot).replace(/\D/g, '') || '0');
-        const lotB = parseInt(String(b.Lot).replace(/\D/g, '') || '0');
-        return lotA - lotB;
-      });
-
-      setProperties(sortedData);
+      setProperties(transformedData);
     } catch (error: any) {
       console.error('Error fetching properties:', error.message);
     } finally {
@@ -247,6 +187,26 @@ const InventoryPage: React.FC = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value);
+  };
+
+  // Function to render status badge with appropriate color
+  const renderStatusBadge = (status: string | undefined) => {
+    if (!status) return null;
+    
+    const statusLower = status.toLowerCase();
+    let bgColor = 'bg-gray-100 text-gray-800'; // Default style
+    
+    if (statusLower === 'available') {
+      bgColor = 'bg-green-100 text-green-800';
+    } else if (statusLower === 'sold') {
+      bgColor = 'bg-red-100 text-red-800';
+    }
+    
+    return (
+      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${bgColor}`}>
+        {status}
+      </span>
+    );
   };
 
   const filteredProperties = properties.filter((property) => {
@@ -328,12 +288,11 @@ const InventoryPage: React.FC = () => {
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">TSP</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">MISC FEE</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Net Contract Price</th>
-              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Term</th>
-              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">First MA</th>
-              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Advance Payment</th>
+              <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Monthly Amortization</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">1st MA net of Advance Payment</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">2ndto60th MA</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Status</th>
+              <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -356,12 +315,20 @@ const InventoryPage: React.FC = () => {
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property.TSP)}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["MISC FEE"])}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["Net Contract Price"])}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{property.Term}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["First MA"])}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["Advance Payment"])}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["Monthly Amortization"])}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["1st MA net of Advance Payment"])}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property["2ndto60th MA"])}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Status}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">
+                  {renderStatusBadge(property.Status)}
+                </td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-center">
+                  <button
+                    onClick={() => handleEditProperty(property)}
+                    className="text-blue-600 hover:text-blue-900 focus:outline-none"
+                  >
+                    <PencilIcon className="h-5 w-5" />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -411,6 +378,7 @@ const InventoryPage: React.FC = () => {
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">PASALO PRICE</th>
               <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">NEW MA</th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Status</th>
+              <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -445,7 +413,17 @@ const InventoryPage: React.FC = () => {
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property['NEW TERM']}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['PASALO PRICE'])}</td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-right">{formatCurrency(property['NEW MA'])}</td>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{property.Status}</td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">
+                  {renderStatusBadge(property.Status)}
+                </td>
+                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-center">
+                  <button
+                    onClick={() => handleEditProperty(property)}
+                    className="text-blue-600 hover:text-blue-900 focus:outline-none"
+                  >
+                    <PencilIcon className="h-5 w-5" />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -679,6 +657,165 @@ const InventoryPage: React.FC = () => {
     }
   }, [properties, selectedProject]);
 
+  const transformData = (data: any[]): Property[] => {
+    return data.map(item => {
+      if (selectedProject.id === 'LivingWater') {
+        return {
+          id: item.id,
+          Block: item.Block || '',
+          Lot: item.Lot || '',
+          "Due Date 15/30": item["Due Date 15/30"] || '',
+          "First Due Month": item["First Due Month"] || '',
+          Amount: parseNumericValue(item.Amount),
+          Realty: item.Realty || '',
+          "Sales Director": item["Sales Director"] || '',
+          Owner: item.Owner || '',
+          "Date of Reservation": item["Date of Reservation"] || '',
+          "Seller Name": item["Seller Name"] || '',
+          "Broker / Realty": item["Broker / Realty"] || '',
+          Reservation: parseNumericValue(item.Reservation),
+          "Lot Area": parseNumericValue(item["Lot Area"]),
+          "Price per sqm": parseNumericValue(item["Price per sqm"]),
+          TCP: parseNumericValue(item.TCP),
+          TSP: parseNumericValue(item.TSP),
+          "MISC FEE": parseNumericValue(item["MISC FEE"]),
+          "Net Contract Price": parseNumericValue(item["Net Contract Price"]),
+          "Monthly Amortization": parseNumericValue(item["Monthly Amortization"]),
+          "1st MA net of Advance Payment": parseNumericValue(item["1st MA net of Advance Payment"]),
+          "2ndto60th MA": parseNumericValue(item["2ndto60th MA"]),
+          Year: parseNumericValue(item.Year),
+          Status: item.Status || '',
+          created_at: item.created_at
+        } as LivingWaterProperty;
+      } else {
+        return {
+          id: item.id,
+          Block: item.Block,
+          Lot: item.Lot,
+          Due: item.Due || '',
+          "Date of Reservation": item["Date of Reservation"] || '',
+          "First Due": item["First Due"] || '',
+          Terms: item.Terms || '',
+          Amount: parseNumericValue(item.Amount),
+          Realty: item.Realty || '',
+          "Buyers Name": item["Buyers Name"] || '',
+          "Seller Name": item["Seller Name"] || '',
+          "Sales Director": item["Sales Director"] || '',
+          Broker: item.Broker || '',
+          "Lot Size": parseNumericValue(item["Lot Size"]),
+          Price: parseNumericValue(item.Price),
+          "Payment Scheme": item["Payment Scheme"] || '',
+          "Vat Status": item["Vat Status"] || '',
+          TSP: parseNumericValue(item.TSP),
+          "Mode of Payment": item["Mode of Payment"] || '',
+          Reservation: parseNumericValue(item.Reservation),
+          "Comm Price": parseNumericValue(item["Comm Price"]),
+          "Misc Fee": parseNumericValue(item["Misc Fee"]),
+          Vat: parseNumericValue(item.Vat),
+          TCP: parseNumericValue(item.TCP),
+          "1st MA": parseNumericValue(item["1st MA"]),
+          "1ST MA with Holding Fee": parseNumericValue(item["1ST MA with Holding Fee"]),
+          "2ND TO 48TH MA": parseNumericValue(item["2ND TO 48TH MA"]),
+          "NEW TERM": item["NEW TERM"] || '',
+          "PASALO PRICE": parseNumericValue(item["PASALO PRICE"]),
+          "NEW MA": parseNumericValue(item["NEW MA"]),
+          Status: item.Status || ''
+        } as HavahillsProperty;
+      }
+    });
+  };
+
+  // Function to handle opening the edit modal
+  const handleEditProperty = (property: Property) => {
+    setCurrentProperty(property);
+    setIsEditModalOpen(true);
+    setSaveError(null);
+  };
+
+  // Function to handle closing the edit modal
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setCurrentProperty(null);
+    setSaveError(null);
+  };
+
+  // Function to handle field changes
+  const handleFieldChange = (field: string, value: string) => {
+    if (!currentProperty) return;
+    
+    setCurrentProperty({
+      ...currentProperty,
+      [field]: value
+    });
+  };
+
+  // Function to save property changes
+  const handleSaveProperty = async () => {
+    if (!currentProperty) return;
+    
+    setIsSaving(true);
+    setSaveError(null);
+    
+    try {
+      const tableName = selectedProject.id === 'LivingWater' ? 'Living Water Subdivision' : 'Havahills Estate';
+      
+      // Prepare update data based on property type
+      let updateData: any = { Status: currentProperty.Status };
+      
+      if (isLivingWaterProperty(currentProperty)) {
+        updateData = {
+          ...updateData,
+          Owner: currentProperty.Owner,
+          'Due Date 15/30': currentProperty['Due Date 15/30'],
+          'First Due Month': currentProperty['First Due Month'],
+          Realty: currentProperty.Realty,
+          'Date of Reservation': currentProperty['Date of Reservation'],
+          'Seller Name': currentProperty['Seller Name'],
+          'Broker / Realty': currentProperty['Broker / Realty']
+        };
+      } else {
+        updateData = {
+          ...updateData,
+          'Buyers Name': currentProperty['Buyers Name'],
+          Due: currentProperty.Due,
+          'Date of Reservation': currentProperty['Date of Reservation'],
+          'First Due': currentProperty['First Due'],
+          Realty: currentProperty.Realty,
+          'Seller Name': currentProperty['Seller Name'],
+          'Sales Director': currentProperty['Sales Director'],
+          Broker: currentProperty.Broker,
+          'Mode of Payment': currentProperty['Mode of Payment']
+        };
+      }
+      
+      const { error } = await supabase
+        .from(tableName)
+        .update(updateData)
+        .eq('id', currentProperty.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setProperties(prevProperties => 
+        prevProperties.map(prop => 
+          prop.id === currentProperty.id ? { ...prop, ...updateData } : prop
+        )
+      );
+      
+      handleCloseEditModal();
+    } catch (error: any) {
+      console.error('Error updating property:', error.message);
+      setSaveError('Failed to update property. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Function to check if property is Living Water
+  const isLivingWaterProperty = (property: Property): property is LivingWaterProperty => {
+    return 'Owner' in property;
+  };
+
   return (
     <div className="p-6">
       <h2 className="text-2xl font-semibold text-gray-900 mb-6">Inventory Management</h2>
@@ -894,6 +1031,472 @@ const InventoryPage: React.FC = () => {
             </button>
           )}
         </div>
+      )}
+      
+      {isEditModalOpen && currentProperty && (
+        <Transition appear show={isEditModalOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-10" onClose={handleCloseEditModal}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black bg-opacity-25" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 text-center">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all">
+                    <div className="absolute top-0 right-0 pt-6 pr-6">
+                      <button
+                        onClick={handleCloseEditModal}
+                        className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      >
+                        <span className="sr-only">Close</span>
+                        <XMarkIcon className="h-6 w-6" />
+                      </button>
+                    </div>
+
+                    <DialogTitle as="h3" className="text-xl font-semibold leading-6 text-gray-900 mb-8">
+                      Edit Property
+                    </DialogTitle>
+
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Editing property details for Block <span className="font-medium text-gray-900">{currentProperty.Block}</span>, Lot <span className="font-medium text-gray-900">{currentProperty.Lot}</span>
+                      </p>
+                    </div>
+
+                    {saveError && (
+                      <div className="rounded-md bg-red-50 p-4 mb-6">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-red-800">Error</h3>
+                            <p className="text-sm text-red-700 mt-1">{saveError}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-6">
+                      {isLivingWaterProperty(currentProperty) ? (
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                          <div>
+                            <label htmlFor="owner" className="block text-sm font-medium leading-6 text-gray-900">
+                              Owner
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="owner"
+                                value={currentProperty.Owner || ''}
+                                onChange={(e) => handleFieldChange('Owner', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter owner name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="dueDate" className="block text-sm font-medium leading-6 text-gray-900">
+                              Due Date
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <select
+                                id="dueDate"
+                                value={currentProperty['Due Date 15/30'] || ''}
+                                onChange={(e) => handleFieldChange('Due Date 15/30', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                              >
+                                <option value="">Select Due Date</option>
+                                <option value="Every 15th">Every 15th</option>
+                                <option value="Every 30th">Every 30th</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="firstDueMonth" className="block text-sm font-medium leading-6 text-gray-900">
+                              First Due Month
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="firstDueMonth"
+                                value={currentProperty['First Due Month'] || ''}
+                                onChange={(e) => handleFieldChange('First Due Month', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter first due month"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="realty" className="block text-sm font-medium leading-6 text-gray-900">
+                              Realty
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="realty"
+                                value={currentProperty.Realty || ''}
+                                onChange={(e) => handleFieldChange('Realty', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter realty name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="dateOfReservation" className="block text-sm font-medium leading-6 text-gray-900">
+                              Date of Reservation
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <input
+                                type="date"
+                                id="dateOfReservation"
+                                value={currentProperty['Date of Reservation'] || ''}
+                                onChange={(e) => handleFieldChange('Date of Reservation', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="sellerName" className="block text-sm font-medium leading-6 text-gray-900">
+                              Seller Name
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="sellerName"
+                                value={currentProperty['Seller Name'] || ''}
+                                onChange={(e) => handleFieldChange('Seller Name', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter seller name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="brokerRealty" className="block text-sm font-medium leading-6 text-gray-900">
+                              Broker / Realty
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="brokerRealty"
+                                value={currentProperty['Broker / Realty'] || ''}
+                                onChange={(e) => handleFieldChange('Broker / Realty', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter broker or realty name"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                          <div>
+                            <label htmlFor="buyersName" className="block text-sm font-medium leading-6 text-gray-900">
+                              Buyers Name
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="buyersName"
+                                value={currentProperty['Buyers Name'] || ''}
+                                onChange={(e) => handleFieldChange('Buyers Name', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter buyer's name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="due" className="block text-sm font-medium leading-6 text-gray-900">
+                              Due
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="due"
+                                value={currentProperty.Due || ''}
+                                onChange={(e) => handleFieldChange('Due', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter due date"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="dateOfReservation" className="block text-sm font-medium leading-6 text-gray-900">
+                              Date of Reservation
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <input
+                                type="date"
+                                id="dateOfReservation"
+                                value={currentProperty['Date of Reservation'] || ''}
+                                onChange={(e) => handleFieldChange('Date of Reservation', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="firstDue" className="block text-sm font-medium leading-6 text-gray-900">
+                              First Due
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="firstDue"
+                                value={currentProperty['First Due'] || ''}
+                                onChange={(e) => handleFieldChange('First Due', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter first due date"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="realty" className="block text-sm font-medium leading-6 text-gray-900">
+                              Realty
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="realty"
+                                value={currentProperty.Realty || ''}
+                                onChange={(e) => handleFieldChange('Realty', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter realty name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="sellerName" className="block text-sm font-medium leading-6 text-gray-900">
+                              Seller Name
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="sellerName"
+                                value={currentProperty['Seller Name'] || ''}
+                                onChange={(e) => handleFieldChange('Seller Name', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter seller name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="salesDirector" className="block text-sm font-medium leading-6 text-gray-900">
+                              Sales Director
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="salesDirector"
+                                value={currentProperty['Sales Director'] || ''}
+                                onChange={(e) => handleFieldChange('Sales Director', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter sales director name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="broker" className="block text-sm font-medium leading-6 text-gray-900">
+                              Broker
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zM8 10a3 3 0 00-3 3v1a1 1 0 001 1h8a1 1 0 001-1v-1a3 3 0 00-3-3H8z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <input
+                                type="text"
+                                id="broker"
+                                value={currentProperty.Broker || ''}
+                                onChange={(e) => handleFieldChange('Broker', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                placeholder="Enter broker name"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label htmlFor="modeOfPayment" className="block text-sm font-medium leading-6 text-gray-900">
+                              Mode of Payment
+                            </label>
+                            <div className="relative mt-2 rounded-md shadow-sm">
+                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <select
+                                id="modeOfPayment"
+                                value={currentProperty['Mode of Payment'] || ''}
+                                onChange={(e) => handleFieldChange('Mode of Payment', e.target.value)}
+                                className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                              >
+                                <option value="">Select Mode of Payment</option>
+                                <option value="Cash">Cash</option>
+                                <option value="GCash">GCash</option>
+                                <option value="Bank">Bank</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label htmlFor="status" className="block text-sm font-medium leading-6 text-gray-900">
+                          Status
+                        </label>
+                        <div className="relative mt-2 rounded-md shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <select
+                            id="status"
+                            value={currentProperty.Status || ''}
+                            onChange={(e) => handleFieldChange('Status', e.target.value)}
+                            className="block w-full rounded-md border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                          >
+                            <option value="">Select Status</option>
+                            <option value="Available">Available</option>
+                            <option value="Sold">Sold</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-end space-x-3">
+                      <button
+                        type="button"
+                        onClick={handleCloseEditModal}
+                        className="inline-flex justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 border border-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveProperty}
+                        disabled={isSaving}
+                        className="inline-flex justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isSaving ? (
+                          <div className="flex items-center">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Saving...
+                          </div>
+                        ) : 'Save Changes'}
+                      </button>
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
       )}
     </div>
   );
