@@ -17,7 +17,7 @@ import './styles/pageTransitions.css';
 
 function App() {
   return (
-    <Router basename="/omniportal">
+    <Router basename="/omniportal/">
       <AnimatePresence mode="wait">
         <Routes>
           <Route path="/" element={<LoginPage />} />
