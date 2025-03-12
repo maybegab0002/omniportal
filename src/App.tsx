@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import LoginPage from './pages/LoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -17,7 +17,7 @@ import './styles/pageTransitions.css';
 
 function App() {
   return (
-    <Router basename="/omniportal/">
+    <Router>
       <AnimatePresence mode="wait">
         <Routes>
           <Route path="/" element={<LoginPage />} />
