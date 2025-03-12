@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { supabase } from '../lib/supabaseClient';
+import { Popover, Transition } from '@headlessui/react';
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,14 +26,35 @@ ChartJS.register(
   Filler
 );
 
+// Define interfaces for property types
+interface LivingWaterProperty {
+  id: number;
+  Block: string;
+  Lot: string;
+  "Lot Area": number;
+  Status?: string;
+  [key: string]: any; // Allow other properties
+}
+
+interface HavahillsProperty {
+  id: number;
+  Block: string | number;
+  Lot: string | number;
+  "Lot Size": number;
+  Status?: string;
+  [key: string]: any; // Allow other properties
+}
+
 const DashboardContent: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Month');
-  const [availableLots, setAvailableLots] = useState(0);
-  const [soldLots, setSoldLots] = useState(0);
-  const [totalLots, setTotalLots] = useState(0);
-  const [activeAccounts, setActiveAccounts] = useState(0);
-  const [livingWaterStats, setLivingWaterStats] = useState({ available: 0, sold: 0, total: 0 });
-  const [havahillsStats, setHavahillsStats] = useState({ available: 0, sold: 0, total: 0 });
+  const [availableLots, setAvailableLots] = useState<number>(0);
+  const [soldLots, setSoldLots] = useState<number>(0);
+  const [totalLots, setTotalLots] = useState<number>(0);
+  const [activeAccounts, setActiveAccounts] = useState<number>(0);
+  const [livingWaterStats, setLivingWaterStats] = useState<{ available: number, sold: number, total: number }>({ available: 0, sold: 0, total: 0 });
+  const [havahillsStats, setHavahillsStats] = useState<{ available: number, sold: number, total: number }>({ available: 0, sold: 0, total: 0 });
+  const [livingWaterAvailableLots, setLivingWaterAvailableLots] = useState<LivingWaterProperty[]>([]);
+  const [havahillsAvailableLots, setHavahillsAvailableLots] = useState<HavahillsProperty[]>([]);
 
   useEffect(() => {
     fetchLotData();
@@ -52,39 +75,101 @@ const DashboardContent: React.FC = () => {
 
       if (livingWaterError) {
         console.error('Living Water Error:', livingWaterError.message);
-        throw livingWaterError;
+        // Continue with empty data instead of throwing
+        setLivingWaterStats({ available: 0, sold: 0, total: 0 });
+        setLivingWaterAvailableLots([]);
+      } else {
+        // Living Water Stats
+        const lwAvailable = livingWaterLots?.filter((lot: any) => 
+          lot.Status?.toLowerCase() === 'available'
+        ).length || 0;
+        const lwSold = livingWaterLots?.filter((lot: any) => 
+          lot.Status?.toLowerCase() === 'sold'
+        ).length || 0;
+        const lwTotal = livingWaterLots?.length || 0;
+        
+        setLivingWaterStats({ available: lwAvailable, sold: lwSold, total: lwTotal });
+        
+        // Properly cast and transform the data for Living Water properties
+        const typedLivingWaterLots = (livingWaterLots || [])?.filter((lot: any) => 
+          lot?.Status?.toLowerCase() === 'available'
+        ).map((lot: any) => ({
+          id: lot.id || Math.random().toString(36).substr(2, 9),
+          Block: lot.Block || '',
+          Lot: lot.Lot || '',
+          "Lot Area": lot["Lot Area"] || null,
+          Status: lot.Status || '',
+          TCP: lot.TCP || null,
+          "Price per sqm": lot["Price per sqm"] || null,
+          "Monthly Amortization": lot["Monthly Amortization"] || null,
+          ...lot
+        })) as LivingWaterProperty[];
+        
+        setLivingWaterAvailableLots(typedLivingWaterLots);
       }
+      
       if (havahillsError) {
         console.error('Havahills Error:', havahillsError.message);
-        throw havahillsError;
+        // Continue with empty data instead of throwing
+        setHavahillsStats({ available: 0, sold: 0, total: 0 });
+        setHavahillsAvailableLots([]);
+      } else {
+        // Havahills Stats
+        const hhAvailable = havahillsLots?.filter((lot: any) => 
+          lot.Status?.toLowerCase() === 'available'
+        ).length || 0;
+        const hhSold = havahillsLots?.filter((lot: any) => 
+          lot.Status?.toLowerCase() === 'sold'
+        ).length || 0;
+        const hhTotal = havahillsLots?.length || 0;
+        
+        setHavahillsStats({ available: hhAvailable, sold: hhSold, total: hhTotal });
+        
+        // Properly cast and transform the data for Havahills properties
+        const typedHavahillsLots = (havahillsLots || [])?.filter((lot: any) => 
+          lot?.Status?.toLowerCase() === 'available'
+        ).map((lot: any) => ({
+          id: lot.id || Math.random().toString(36).substr(2, 9),
+          Block: lot.Block || '',
+          Lot: lot.Lot || '',
+          "Lot Size": lot["Lot Size"] || null,
+          Status: lot.Status || '',
+          TCP: lot.TCP || null,
+          Price: lot.Price || null,
+          "1st MA": lot["1st MA"] || null,
+          ...lot
+        })) as HavahillsProperty[];
+        
+        setHavahillsAvailableLots(typedHavahillsLots);
       }
-
-      // Living Water Stats
-      const lwAvailable = livingWaterLots?.filter(lot => 
-        lot.Status?.toLowerCase() === 'available'
-      ).length || 0;
-      const lwSold = livingWaterLots?.filter(lot => 
-        lot.Status?.toLowerCase() === 'sold'
-      ).length || 0;
-      const lwTotal = livingWaterLots?.length || 0;
-
-      // Havahills Stats
-      const hhAvailable = havahillsLots?.filter(lot => 
-        lot.Status?.toLowerCase() === 'available'
-      ).length || 0;
-      const hhSold = havahillsLots?.filter(lot => 
-        lot.Status?.toLowerCase() === 'sold'
-      ).length || 0;
-      const hhTotal = havahillsLots?.length || 0;
-
-      setLivingWaterStats({ available: lwAvailable, sold: lwSold, total: lwTotal });
-      setHavahillsStats({ available: hhAvailable, sold: hhSold, total: hhTotal });
       
-      setAvailableLots(lwAvailable + hhAvailable);
-      setSoldLots(lwSold + hhSold);
-      setTotalLots(lwTotal + hhTotal);
+      // Set total counts
+      const totalAvailable = 
+        (livingWaterError ? 0 : (livingWaterLots?.filter((lot: any) => lot.Status?.toLowerCase() === 'available').length || 0)) + 
+        (havahillsError ? 0 : (havahillsLots?.filter((lot: any) => lot.Status?.toLowerCase() === 'available').length || 0));
+      
+      const totalSold = 
+        (livingWaterError ? 0 : (livingWaterLots?.filter((lot: any) => lot.Status?.toLowerCase() === 'sold').length || 0)) + 
+        (havahillsError ? 0 : (havahillsLots?.filter((lot: any) => lot.Status?.toLowerCase() === 'sold').length || 0));
+      
+      const totalLots = 
+        (livingWaterError ? 0 : (livingWaterLots?.length || 0)) + 
+        (havahillsError ? 0 : (havahillsLots?.length || 0));
+      
+      setAvailableLots(totalAvailable);
+      setSoldLots(totalSold);
+      setTotalLots(totalLots);
+      
     } catch (error: any) {
       console.error('Error fetching lot data:', error?.message || 'Unknown error');
+      // Set default values in case of error
+      setLivingWaterStats({ available: 0, sold: 0, total: 0 });
+      setHavahillsStats({ available: 0, sold: 0, total: 0 });
+      setAvailableLots(0);
+      setSoldLots(0);
+      setTotalLots(0);
+      setLivingWaterAvailableLots([]);
+      setHavahillsAvailableLots([]);
     }
   };
 
@@ -100,7 +185,7 @@ const DashboardContent: React.FC = () => {
       }
 
       // Count only clients that have an email
-      const activeCount = clients?.filter(client => 
+      const activeCount = clients?.filter((client: any) => 
         client.Email && client.Email.trim() !== ''
       ).length || 0;
 
@@ -223,8 +308,154 @@ const DashboardContent: React.FC = () => {
               <h3 className="text-xl font-bold text-gray-900">{availableLots}</h3>
               <p className="text-xs text-gray-600">Available Lots</p>
               <div className="mt-2 space-y-1">
-                <p className="text-xs text-gray-500">Living Water: {livingWaterStats.available}</p>
-                <p className="text-xs text-gray-500">Havahills: {havahillsStats.available}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">Living Water: {livingWaterStats.available}</p>
+                  {livingWaterStats.available > 0 && (
+                    <Popover className="relative">
+                      <Popover.Button className="flex items-center justify-center p-1 rounded-full hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        <ChevronRightIcon className="w-4 h-4 text-blue-600" />
+                      </Popover.Button>
+                      <Transition
+                        as={React.Fragment}
+                        enter="transition ease-out duration-200"
+                        enterFrom="opacity-0 translate-y-1"
+                        enterTo="opacity-100 translate-y-0"
+                        leave="transition ease-in duration-150"
+                        leaveFrom="opacity-100 translate-y-0"
+                        leaveTo="opacity-0 translate-y-1"
+                      >
+                        <Popover.Panel className="absolute z-50 mt-1 w-72 max-h-96 overflow-y-auto transform -translate-x-3/4 left-1/2 sm:px-0">
+                          <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
+                            <div className="relative bg-white p-4">
+                              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                                <div className="text-sm font-semibold text-gray-900">Living Water Available Lots</div>
+                                <div className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                                  {livingWaterStats.available} lots
+                                </div>
+                              </div>
+                              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                                {livingWaterAvailableLots.map((lot: LivingWaterProperty) => (
+                                  <div key={lot.id} className="p-3 bg-gradient-to-r from-white to-gray-50 hover:from-blue-50 hover:to-white rounded-md border border-gray-200 hover:border-blue-200 transition-all shadow-sm">
+                                    <div className="flex justify-between items-center mb-2 pb-1 border-b border-gray-100">
+                                      <div className="flex items-center">
+                                        <div className="w-5 h-5 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full mr-1.5">
+                                          <span className="text-xs font-bold">{lot.Block}</span>
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-700">Block</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <div className="w-5 h-5 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full mr-1.5">
+                                          <span className="text-xs font-bold">{lot.Lot}</span>
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-700">Lot</span>
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="flex flex-col">
+                                        <span className="text-xs text-gray-500">Lot Area</span>
+                                        <span className="text-xs font-medium">{lot["Lot Area"] ? `${lot["Lot Area"]} sqm` : 'N/A'}</span>
+                                      </div>
+                                      <div className="flex flex-col">
+                                        <span className="text-xs text-gray-500">TCP</span>
+                                        <span className="text-xs font-medium">{typeof lot.TCP !== 'undefined' && lot.TCP !== null ? `₱${parseFloat(String(lot.TCP)).toLocaleString()}` : 'N/A'}</span>
+                                      </div>
+                                      {(lot["Price per sqm"] !== undefined && lot["Price per sqm"] !== null) && (
+                                        <div className="flex flex-col">
+                                          <span className="text-xs text-gray-500">Price/sqm</span>
+                                          <span className="text-xs font-medium">₱{parseFloat(String(lot["Price per sqm"])).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {(lot["Monthly Amortization"] !== undefined && lot["Monthly Amortization"] !== null) && (
+                                        <div className="flex flex-col">
+                                          <span className="text-xs text-gray-500">Monthly</span>
+                                          <span className="text-xs font-medium">₱{parseFloat(String(lot["Monthly Amortization"])).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </Popover.Panel>
+                      </Transition>
+                    </Popover>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">Havahills: {havahillsStats.available}</p>
+                  {havahillsStats.available > 0 && (
+                    <Popover className="relative">
+                      <Popover.Button className="flex items-center justify-center p-1 rounded-full hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        <ChevronRightIcon className="w-4 h-4 text-blue-600" />
+                      </Popover.Button>
+                      <Transition
+                        as={React.Fragment}
+                        enter="transition ease-out duration-200"
+                        enterFrom="opacity-0 translate-y-1"
+                        enterTo="opacity-100 translate-y-0"
+                        leave="transition ease-in duration-150"
+                        leaveFrom="opacity-100 translate-y-0"
+                        leaveTo="opacity-0 translate-y-1"
+                      >
+                        <Popover.Panel className="absolute z-50 mt-1 w-72 max-h-96 overflow-y-auto transform -translate-x-3/4 left-1/2 sm:px-0">
+                          <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black ring-opacity-5">
+                            <div className="relative bg-white p-4">
+                              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                                <div className="text-sm font-semibold text-gray-900">Havahills Available Lots</div>
+                                <div className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                                  {havahillsStats.available} lots
+                                </div>
+                              </div>
+                              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                                {havahillsAvailableLots.map((lot: HavahillsProperty) => (
+                                  <div key={lot.id} className="p-3 bg-gradient-to-r from-white to-gray-50 hover:from-blue-50 hover:to-white rounded-md border border-gray-200 hover:border-blue-200 transition-all shadow-sm">
+                                    <div className="flex justify-between items-center mb-2 pb-1 border-b border-gray-100">
+                                      <div className="flex items-center">
+                                        <div className="w-5 h-5 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full mr-1.5">
+                                          <span className="text-xs font-bold">{lot.Block}</span>
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-700">Block</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <div className="w-5 h-5 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full mr-1.5">
+                                          <span className="text-xs font-bold">{lot.Lot}</span>
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-700">Lot</span>
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="flex flex-col">
+                                        <span className="text-xs text-gray-500">Lot Size</span>
+                                        <span className="text-xs font-medium">{lot["Lot Size"] ? `${lot["Lot Size"]} sqm` : 'N/A'}</span>
+                                      </div>
+                                      <div className="flex flex-col">
+                                        <span className="text-xs text-gray-500">TCP</span>
+                                        <span className="text-xs font-medium">{typeof lot.TCP !== 'undefined' && lot.TCP !== null ? `₱${parseFloat(String(lot.TCP)).toLocaleString()}` : 'N/A'}</span>
+                                      </div>
+                                      {(lot.Price !== undefined && lot.Price !== null) && (
+                                        <div className="flex flex-col">
+                                          <span className="text-xs text-gray-500">Price</span>
+                                          <span className="text-xs font-medium">₱{parseFloat(String(lot.Price)).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {(lot["1st MA"] !== undefined && lot["1st MA"] !== null) && (
+                                        <div className="flex flex-col">
+                                          <span className="text-xs text-gray-500">Monthly</span>
+                                          <span className="text-xs font-medium">₱{parseFloat(String(lot["1st MA"])).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </Popover.Panel>
+                      </Transition>
+                    </Popover>
+                  )}
+                </div>
               </div>
             </div>
 
