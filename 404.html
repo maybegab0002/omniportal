@@ -1,24 +1,22 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Omni Portal</title>
-    <script type="text/javascript">
-      // Single Page Apps for GitHub Pages
-      // MIT License
-      // https://github.com/rafgraph/spa-github-pages
-      var pathSegmentsToKeep = 0;
-
-      var l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-        l.hash
-      );
-    </script>
-  </head>
-  <body>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <title>Omni Portal</title>
+  <script>
+    // Redirect to the homepage and append the requested path as a hash fragment
+    window.location.replace(
+      window.location.protocol + '//' + 
+      window.location.hostname + 
+      (window.location.port ? ':' + window.location.port : '') +
+      '/' + 
+      window.location.pathname.split('/').slice(1).join('/').replace(/&/g, '~and~') +
+      (window.location.search ? '?' + window.location.search.slice(1).replace(/&/g, '~and~') : '') +
+      window.location.hash
+    );
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
 </html>
