@@ -1,0 +1,10 @@
+{
+  "env": {
+    "VERCEL": "true"
+  },
+  "routes": [
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}
