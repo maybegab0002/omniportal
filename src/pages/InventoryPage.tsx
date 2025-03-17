@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { Listbox, Transition } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon, HomeIcon, HomeModernIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, ChevronUpDownIcon, HomeIcon, HomeModernIcon, PencilIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { supabase } from '../lib/supabaseClient';
 import { Dialog, DialogTitle } from '@headlessui/react';
 
@@ -322,12 +322,24 @@ const InventoryPage: React.FC = () => {
                   {renderStatusBadge(property.Status)}
                 </td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-center">
-                  <button
-                    onClick={() => handleEditProperty(property)}
-                    className="text-blue-600 hover:text-blue-900 focus:outline-none"
-                  >
-                    <PencilIcon className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center justify-center space-x-2">
+                    <button
+                      onClick={() => handleEditProperty(property)}
+                      className="text-blue-600 hover:text-blue-900 focus:outline-none"
+                      title="Edit Property"
+                    >
+                      <PencilIcon className="h-5 w-5" />
+                    </button>
+                    {property.Status?.toLowerCase() === 'sold' && (
+                      <button
+                        onClick={() => handleReopenProperty(property)}
+                        className="text-red-600 hover:text-red-900 focus:outline-none"
+                        title="Reopen Property"
+                      >
+                        <ArrowPathIcon className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -417,12 +429,22 @@ const InventoryPage: React.FC = () => {
                   {renderStatusBadge(property.Status)}
                 </td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-center">
-                  <button
-                    onClick={() => handleEditProperty(property)}
-                    className="text-blue-600 hover:text-blue-900 focus:outline-none"
-                  >
-                    <PencilIcon className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center justify-center space-x-2">
+                    <button
+                      onClick={() => handleEditProperty(property)}
+                      className="text-blue-600 hover:text-blue-900 focus:outline-none"
+                    >
+                      <PencilIcon className="h-5 w-5" />
+                    </button>
+                    {property.Status?.toLowerCase() === 'sold' && (
+                      <button
+                        onClick={() => handleReopenProperty(property)}
+                        className="text-red-600 hover:text-red-900 focus:outline-none"
+                      >
+                        <ArrowPathIcon className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -814,6 +836,57 @@ const InventoryPage: React.FC = () => {
   // Function to check if property is Living Water
   const isLivingWaterProperty = (property: Property): property is LivingWaterProperty => {
     return 'Owner' in property;
+  };
+
+  // Function to handle reopening a sold property
+  const handleReopenProperty = async (property: Property) => {
+    try {
+      const tableName = selectedProject.id === 'LivingWater' ? 'Living Water Subdivision' : 'Havahills Estate';
+      
+      // Create an update object with cleared fields and Available status
+      const updateData: any = {
+        Status: 'Available'
+      };
+      
+      // Clear specific fields based on property type
+      if (isLivingWaterProperty(property)) {
+        // Living Water property fields
+        updateData['Owner'] = '';
+        updateData['Due Date 15/30'] = '';
+        updateData['First Due Month'] = '';
+        updateData['Realty'] = '';
+        updateData['Date of Reservation'] = '';
+        updateData['Seller Name'] = '';
+        updateData['Broker / Realty'] = '';
+      } else {
+        // Havahills property fields
+        updateData['Buyers Name'] = '';
+        updateData['Due'] = '';
+        updateData['First Due'] = '';
+        updateData['Realty'] = '';
+        updateData['Date of Reservation'] = '';
+        updateData['Seller Name'] = '';
+        updateData['Broker'] = '';
+      }
+      
+      // Update the property in the database
+      const { error } = await supabase
+        .from(tableName)
+        .update(updateData)
+        .eq('id', property.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setProperties(prevProperties => 
+        prevProperties.map(prop => 
+          prop.id === property.id ? { ...prop, ...updateData } : prop
+        )
+      );
+      
+    } catch (error: any) {
+      console.error('Error reopening property:', error.message);
+    }
   };
 
   return (
@@ -1402,7 +1475,7 @@ const InventoryPage: React.FC = () => {
                             <div className="relative mt-2 rounded-md shadow-sm">
                               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                 <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zM8 10a3 3 0 00-3 3v1a1 1 0 001 1h8a1 1 0 001-1v-1a3 3 0 00-3-3H8z" clipRule="evenodd" />
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                 </svg>
                               </div>
                               <input

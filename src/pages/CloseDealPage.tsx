@@ -603,39 +603,50 @@ const CloseDealPage: React.FC = () => {
                           <UserGroupIcon className="h-4 w-4 mr-1 text-gray-500" /> People & Organizations
                         </h5>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                          {/* Ensure critical fields are always displayed */}
-                          {['Owner', 'Buyers Name', 'Seller Name', 'Broker / Realty', 'Broker', 'Realty', 'Sales Director'].map(fieldName => {
-                            // Check if this field exists in the property
-                            const exists = Object.keys(selectedProperty).some(key => key === fieldName);
-                            const value = exists ? selectedProperty[fieldName] : '';
+                          {/* Display fields based on the selected project */}
+                          {(() => {
+                            // Define fields for each project with the exact field names from the database tables
+                            const livingWaterFields = ['Owner', 'Seller Name', 'Broker / Realty', 'Realty'];
+                            const havahillsFields = ['Buyers Name', 'Seller Name', 'Sales Director', 'Broker'];
                             
-                            // Determine which icon to use based on field name
-                            let FieldIcon = UserIcon;
-                            if (fieldName.includes('Broker') || fieldName.includes('Realty') || fieldName.includes('Director')) {
-                              FieldIcon = BuildingOfficeIcon;
-                            }
+                            // Select the appropriate fields based on the project
+                            const fieldsToDisplay = selectedProperty.Project === 'Living Water Subdivision' 
+                              ? livingWaterFields 
+                              : havahillsFields;
                             
-                            return (
-                              <div className="flex flex-col" key={fieldName}>
-                                <label className="text-sm font-medium leading-6 text-gray-900 mb-1 flex items-center">
-                                  <FieldIcon className="h-4 w-4 mr-1 text-gray-500" />
-                                  {fieldName}
-                                </label>
-                                <div className="relative">
-                                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <UserIcon className="h-4 w-4 text-gray-400" />
+                            return fieldsToDisplay.map(fieldName => {
+                              // Check if this field exists in the property
+                              const exists = Object.keys(selectedProperty).some(key => key === fieldName);
+                              const value = exists ? selectedProperty[fieldName] : '';
+                              
+                              // Determine which icon to use based on field name
+                              let FieldIcon = UserIcon;
+                              if (fieldName.includes('Broker') || fieldName.includes('Realty') || fieldName.includes('Director')) {
+                                FieldIcon = BuildingOfficeIcon;
+                              }
+                              
+                              return (
+                                <div className="flex flex-col" key={fieldName}>
+                                  <label className="text-sm font-medium leading-6 text-gray-900 mb-1 flex items-center">
+                                    <FieldIcon className="h-4 w-4 mr-1 text-gray-500" />
+                                    {fieldName}
+                                  </label>
+                                  <div className="relative">
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                      <UserIcon className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      className="block w-full rounded-md border-0 py-2 pl-8 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
+                                      value={editedProperty[fieldName] !== undefined ? editedProperty[fieldName] : value}
+                                      onChange={(e) => handlePropertyChange(fieldName, e.target.value)}
+                                      placeholder={`Enter ${fieldName}`}
+                                    />
                                   </div>
-                                  <input
-                                    type="text"
-                                    className="block w-full rounded-md border-0 py-2 pl-8 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm"
-                                    value={editedProperty[fieldName] !== undefined ? editedProperty[fieldName] : value}
-                                    onChange={(e) => handlePropertyChange(fieldName, e.target.value)}
-                                    placeholder={`Enter ${fieldName}`}
-                                  />
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            });
+                          })()} 
                           
                           {/* Display any additional people/org fields that might exist */}
                           {Object.entries(selectedProperty).map(([key, value]) => {
@@ -649,8 +660,15 @@ const CloseDealPage: React.FC = () => {
                               key.includes('Director')
                             );
                             
-                            // Skip fields we explicitly added above
-                            if (['Owner', 'Buyers Name', 'Seller Name', 'Broker / Realty', 'Broker', 'Realty', 'Sales Director'].includes(key)) {
+                            // Skip fields we explicitly added above for Living Water
+                            if (selectedProperty.Project === 'Living Water Subdivision' &&
+                                ['Owner', 'Seller Name', 'Broker / Realty'].includes(key)) {
+                              return null;
+                            }
+                            
+                            // Skip fields we explicitly added above for Havahills
+                            if (selectedProperty.Project === 'Havahills Estate' &&
+                                ['Buyers Name', 'Seller Name', 'Sales Director', 'Broker'].includes(key)) {
                               return null;
                             }
                             
