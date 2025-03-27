@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Fragment } from 'react';
-import { Listbox, Transition } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon, HomeIcon, HomeModernIcon, PencilIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { Transition } from '@headlessui/react';
+import { HomeIcon, HomeModernIcon, PencilIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { supabase } from '../lib/supabaseClient';
 import { Dialog, DialogTitle } from '@headlessui/react';
 
@@ -325,18 +325,24 @@ const InventoryPage: React.FC = () => {
                   <div className="flex items-center justify-center space-x-2">
                     <button
                       onClick={() => handleEditProperty(property)}
-                      className="text-blue-600 hover:text-blue-900 focus:outline-none"
+                      className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200"
                       title="Edit Property"
                     >
-                      <PencilIcon className="h-5 w-5" />
+                      <span className="flex items-center space-x-1">
+                        <PencilIcon className="h-4 w-4" />
+                        <span>Edit</span>
+                      </span>
                     </button>
                     {property.Status?.toLowerCase() === 'sold' && (
                       <button
                         onClick={() => handleReopenProperty(property)}
-                        className="text-red-600 hover:text-red-900 focus:outline-none"
+                        className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors duration-200"
                         title="Reopen Property"
                       >
-                        <ArrowPathIcon className="h-5 w-5" />
+                        <span className="flex items-center space-x-1">
+                          <ArrowPathIcon className="h-4 w-4" />
+                          <span>Reopen</span>
+                        </span>
                       </button>
                     )}
                   </div>
@@ -432,16 +438,24 @@ const InventoryPage: React.FC = () => {
                   <div className="flex items-center justify-center space-x-2">
                     <button
                       onClick={() => handleEditProperty(property)}
-                      className="text-blue-600 hover:text-blue-900 focus:outline-none"
+                      className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200"
+                      title="Edit Property"
                     >
-                      <PencilIcon className="h-5 w-5" />
+                      <span className="flex items-center space-x-1">
+                        <PencilIcon className="h-4 w-4" />
+                        <span>Edit</span>
+                      </span>
                     </button>
                     {property.Status?.toLowerCase() === 'sold' && (
                       <button
                         onClick={() => handleReopenProperty(property)}
-                        className="text-red-600 hover:text-red-900 focus:outline-none"
+                        className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors duration-200"
+                        title="Reopen Property"
                       >
-                        <ArrowPathIcon className="h-5 w-5" />
+                        <span className="flex items-center space-x-1">
+                          <ArrowPathIcon className="h-4 w-4" />
+                          <span>Reopen</span>
+                        </span>
                       </button>
                     )}
                   </div>
@@ -891,161 +905,88 @@ const InventoryPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-6">Inventory Management</h2>
-      
-      <div className="flex flex-col sm:flex-row gap-4 mb-6 justify-between">
-        {/* Search Bar - On the left */}
-        <div className="w-full sm:w-96">
-          <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-            Search
-          </label>
-          <div className="relative">
+      <div className="sm:flex sm:items-center mb-8">
+        <div className="sm:flex-auto">
+          <h1 className="text-xl font-semibold text-gray-900">Inventory</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            A list of all properties in the system.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          {/* Search Input */}
+          <div className="relative w-full sm:w-64">
             <input
               type="text"
-              id="search"
-              placeholder="Search by block, lot, owner, seller, or broker..."
+              placeholder="Search properties..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-400"
+              className="block w-full rounded-lg border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 shadow-sm"
             />
-            <svg
-              className="absolute left-3 top-3.5 h-5 w-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-500 focus:outline-none"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
-        
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Status Filter Dropdown - Now on the right */}
-          <div className="w-full sm:w-72">
-            <Listbox value={statusFilter} onChange={setStatusFilter}>
-              <div className="relative mt-1">
-                <Listbox.Label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </Listbox.Label>
-                <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-3 pl-4 pr-10 text-left border border-gray-300 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-opacity-75 focus-visible:ring-offset-2 sm:text-sm transition-all duration-200 hover:bg-gray-50">
-                  <span className="flex items-center">
-                    <span className="mr-2 text-gray-500">
-                      {/* Add an icon here if needed */}
-                    </span>
-                    <span className="block truncate">{statusOptions.find(option => option.id === statusFilter)?.name}</span>
-                  </span>
-                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                    <ChevronUpDownIcon
-                      className="h-5 w-5 text-gray-400"
-                      aria-hidden="true"
-                    />
-                  </span>
-                </Listbox.Button>
-                <Transition
-                  as={Fragment}
-                  leave="transition ease-in duration-100"
-                  leaveFrom="opacity-100"
-                  leaveTo="opacity-0"
-                >
-                  <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                    {statusOptions.map((option) => (
-                      <Listbox.Option
-                        key={option.id}
-                        className={({ active }) =>
-                          `relative cursor-pointer select-none py-2 pl-10 pr-4 transition-colors duration-200 ${
-                            active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'
-                          }`
-                        }
-                        value={option.id}
-                      >
-                        {({ selected }) => (
-                          <>
-                            <span className={`flex items-center truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                              <span className="mr-2 text-gray-500">
-                                {/* Add an icon here if needed */}
-                              </span>
-                              {option.name}
-                            </span>
-                            {selected ? (
-                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">
-                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                              </span>
-                            ) : null}
-                          </>
-                        )}
-                      </Listbox.Option>
-                    ))}
-                  </Listbox.Options>
-                </Transition>
+
+        {/* Right-aligned dropdowns */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          {/* Project Selector */}
+          <div className="w-full sm:w-48">
+            <div className="relative rounded-lg shadow-sm">
+              <select
+                value={selectedProject.id}
+                onChange={(e) => setSelectedProject(projects.find(p => p.id === e.target.value) || projects[0])}
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 appearance-none cursor-pointer shadow-sm"
+              >
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
               </div>
-            </Listbox>
+            </div>
           </div>
-          
-          {/* Project Selector Dropdown - Now on the far right */}
-          <div className="w-full sm:w-72">
-            <Listbox value={selectedProject} onChange={setSelectedProject}>
-              <div className="relative mt-1">
-                <Listbox.Label className="block text-sm font-medium text-gray-700 mb-2">
-                  Project
-                </Listbox.Label>
-                <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-white py-3 pl-4 pr-10 text-left border border-gray-300 focus:outline-none focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-opacity-75 focus-visible:ring-offset-2 sm:text-sm transition-all duration-200 hover:bg-gray-50">
-                  <span className="flex items-center">
-                    <span className="mr-2 text-gray-500">
-                      {selectedProject.icon("h-5 w-5")}
-                    </span>
-                    <span className="block truncate">{selectedProject.name}</span>
-                  </span>
-                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                    <ChevronUpDownIcon
-                      className="h-5 w-5 text-gray-400"
-                      aria-hidden="true"
-                    />
-                  </span>
-                </Listbox.Button>
-                <Transition
-                  as={Fragment}
-                  leave="transition ease-in duration-100"
-                  leaveFrom="opacity-100"
-                  leaveTo="opacity-0"
-                >
-                  <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                    {projects.map((project) => (
-                      <Listbox.Option
-                        key={project.id}
-                        className={({ active }) =>
-                          `relative cursor-pointer select-none py-2 pl-10 pr-4 transition-colors duration-200 ${
-                            active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'
-                          }`
-                        }
-                        value={project}
-                      >
-                        {({ selected }) => (
-                          <>
-                            <span className={`flex items-center truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                              <span className="mr-2 text-gray-500">
-                                {project.icon("h-5 w-5")}
-                              </span>
-                              {project.name}
-                            </span>
-                            {selected ? (
-                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600">
-                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                              </span>
-                            ) : null}
-                          </>
-                        )}
-                      </Listbox.Option>
-                    ))}
-                  </Listbox.Options>
-                </Transition>
+
+          {/* Status Filter */}
+          <div className="w-full sm:w-48">
+            <div className="relative rounded-lg shadow-sm">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 appearance-none cursor-pointer shadow-sm"
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
               </div>
-            </Listbox>
+            </div>
           </div>
         </div>
       </div>
@@ -1055,7 +996,7 @@ const InventoryPage: React.FC = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
       ) : (
-        <div className="relative">
+        <div className="relative mt-4">
           {showScrollButtons && (
             <button
               className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-gray-200 hover:bg-gray-300 rounded-lg p-2 shadow-md"
@@ -1522,7 +1463,7 @@ const InventoryPage: React.FC = () => {
                         <div className="relative mt-2 rounded-md shadow-sm">
                           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                             <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                             </svg>
                           </div>
                           <select

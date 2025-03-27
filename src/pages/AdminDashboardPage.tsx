@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
+import { usePayment } from '../contexts/PaymentContext';
+import { useTicket } from '../contexts/TicketContext';
 
 // Define types for menu items
 type MenuItem = {
@@ -17,6 +19,8 @@ const AdminDashboardPage = () => {
   const location = useLocation();
   const [isRestrictedUser, setIsRestrictedUser] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { pendingPaymentsCount } = usePayment();
+  const { newTicketsCount } = useTicket();
 
   // Re-enable auth check
   useEffect(() => {
@@ -143,8 +147,36 @@ const AdminDashboardPage = () => {
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-center h-16 px-6 bg-white border-b border-gray-100">
-            <span className="text-xl font-bold text-gray-800">Omni Portal</span>
+          <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100">
+            <div className="relative flex items-center justify-center w-10 h-10 group cursor-pointer">
+              {/* Background Circle */}
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 
+                transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-500/40"></div>
+              
+              {/* Inner Ring */}
+              <div className="absolute inset-2 rounded-lg border-2 border-white/50 transition-all duration-300 
+                group-hover:border-white/70 group-hover:scale-105"></div>
+              
+              {/* Center Dot */}
+              <div className="absolute w-2 h-2 rounded-full bg-white shadow-lg transition-transform duration-300 
+                group-hover:scale-150 group-hover:shadow-xl"></div>
+              
+              {/* Orbital Circle */}
+              <div className="absolute w-full h-full rounded-xl border-2 border-white/30 
+                animate-[spin_8s_linear_infinite] group-hover:border-white/50"></div>
+              
+              {/* Small Orbiting Dot */}
+              <div className="absolute w-1.5 h-1.5 rounded-full bg-white shadow-lg shadow-white/50 top-0 
+                animate-[spin_8s_linear_infinite] transition-all duration-300 
+                group-hover:w-2 group-hover:h-2 group-hover:shadow-xl"></div>
+            </div>
+            
+            <div className="flex flex-col">
+              <span className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                Omni Portal
+              </span>
+              <span className="text-xs text-slate-400 font-medium tracking-wide">Admin Dashboard</span>
+            </div>
           </div>
 
           {/* Navigation */}
@@ -170,49 +202,64 @@ const AdminDashboardPage = () => {
                     </div>
                   </li>
                 ) : (
-                  <li key={index}>
-                    <Link
-                      to={item.path}
-                      className={`group relative flex items-center px-4 py-2 text-sm font-medium rounded-xl transition-all duration-300
-                        ${location.pathname === item.path 
-                          ? 'text-blue-600'
-                          : 'text-slate-600 hover:text-blue-600'
-                        }`}
-                    >
-                      {/* Hover effect background */}
-                      <div className={`absolute inset-0 rounded-xl transition-opacity duration-300 opacity-0 group-hover:opacity-100
-                        bg-gradient-to-r from-blue-50 to-indigo-50 blur-[2px]`}></div>
-                      
-                      {/* Active indicator */}
-                      {location.pathname === item.path && (
-                        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-blue-600 rounded-r-full"></div>
-                      )}
+                  <Link
+                    key={index}
+                    to={item.path}
+                    className={`group relative flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-300
+                      ${location.pathname === item.path 
+                        ? 'text-blue-600'
+                        : 'text-slate-600 hover:text-blue-600'
+                      }`}
+                  >
+                    {/* Hover effect background */}
+                    <div className={`absolute inset-0 rounded-xl transition-opacity duration-300 opacity-0 group-hover:opacity-100
+                      bg-gradient-to-r from-blue-50 to-indigo-50`}></div>
+                    
+                    {/* Active indicator */}
+                    {location.pathname === item.path && (
+                      <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-8 bg-blue-600 rounded-r-full"></div>
+                    )}
 
-                      {/* Icon */}
-                      <span className={`relative flex items-center justify-center w-8 h-8 mr-3 rounded-lg 
-                        transition-all duration-300 transform group-hover:scale-110 group-hover:rotate-3
-                        ${location.pathname === item.path 
-                          ? 'bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/20'
-                          : 'bg-blue-50 text-blue-600'
-                        }`}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          {item.icon}
-                        </svg>
-                      </span>
+                    {/* Icon */}
+                    <span className={`relative flex items-center justify-center w-8 h-8 mr-3 rounded-lg 
+                      transition-all duration-300 transform group-hover:scale-110 group-hover:rotate-3
+                      ${location.pathname === item.path 
+                        ? 'bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/20'
+                        : 'bg-blue-50 text-blue-600'
+                      }`}>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {item.icon}
+                      </svg>
+                    </span>
 
-                      {/* Text */}
+                    {/* Text and Badge Container */}
+                    <div className="relative flex items-center justify-between flex-grow">
                       <span className="relative">{item.name}</span>
-
-                      {/* Arrow indicator */}
-                      {location.pathname === item.path && (
-                        <span className="relative ml-auto transform transition-transform duration-300 group-hover:translate-x-1">
-                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                      
+                      {/* Payment Notification Badge */}
+                      {item.name === 'Payment' && pendingPaymentsCount > 0 && (
+                        <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-medium rounded-full bg-gradient-to-r from-red-600 to-rose-500 text-white shadow-sm shadow-red-500/30 transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-px">
+                          {pendingPaymentsCount}
                         </span>
                       )}
-                    </Link>
-                  </li>
+
+                      {/* Ticket Notification Badge */}
+                      {item.name === 'Ticket' && newTicketsCount > 0 && (
+                        <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-medium rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm shadow-red-500/30 transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-px">
+                          {newTicketsCount}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Arrow indicator */}
+                    {location.pathname === item.path && (
+                      <span className="relative ml-3 transform transition-transform duration-300 group-hover:translate-x-1">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </span>
+                    )}
+                  </Link>
                 );
               })}
             </ul>
@@ -222,23 +269,39 @@ const AdminDashboardPage = () => {
           <div className="p-4">
             <button
               onClick={handleSignOut}
-              className="group relative flex items-center justify-center w-full px-4 py-3 text-sm font-medium 
-                text-red-600 rounded-xl transition-all duration-300"
+              className="group relative flex items-center w-full px-4 py-3 text-sm font-medium 
+                text-red-600 hover:text-red-700 rounded-xl transition-all duration-300 overflow-hidden"
             >
               {/* Hover effect background */}
-              <div className="absolute inset-0 rounded-xl transition-opacity duration-300 opacity-0 group-hover:opacity-100
-                bg-gradient-to-r from-red-50 to-orange-50 blur-[2px]"></div>
+              <div className="absolute inset-0 rounded-xl transition-all duration-500 opacity-0 group-hover:opacity-100
+                bg-gradient-to-r from-red-50 via-orange-50 to-red-50 bg-[length:200%_100%] group-hover:animate-shimmer"></div>
               
-              {/* Icon */}
-              <span className="relative flex items-center justify-center w-8 h-8 mr-2 rounded-lg 
-                bg-red-50 text-red-600 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-12">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              {/* Icon Container */}
+              <div className="relative z-10 flex items-center justify-center w-8 h-8 mr-3 rounded-lg 
+                bg-red-50 text-red-600 transition-all duration-300 
+                group-hover:scale-110 group-hover:-rotate-12 group-hover:shadow-lg group-hover:shadow-red-500/20">
+                {/* Icon */}
+                <svg className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" 
+                     fill="none" 
+                     stroke="currentColor" 
+                     viewBox="0 0 24 24">
+                  <path strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" 
+                        className="transition-all duration-300 group-hover:stroke-[2.5]" />
                 </svg>
-              </span>
+              </div>
               
               {/* Text */}
-              <span className="relative font-medium">Log Out</span>
+              <span className="relative z-10 font-medium tracking-wide transform transition-all duration-300 
+                group-hover:translate-x-1 group-hover:font-semibold">
+                Log Out
+              </span>
+
+              {/* Decorative dot */}
+              <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-red-500/40 
+                transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:scale-150"></div>
             </button>
           </div>
         </div>

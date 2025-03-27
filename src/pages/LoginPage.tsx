@@ -7,9 +7,9 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,10 +52,6 @@ const LoginPage = () => {
         
         // Store user email in localStorage
         localStorage.setItem('userEmail', email);
-        
-        if (rememberMe) {
-          localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
-        }
 
         // Check if user is admin or client
         const { data: clientData, error: clientError } = await supabase
@@ -102,38 +98,22 @@ const LoginPage = () => {
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Please enter your email address');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        ...getAuthOptions(),
-        redirectTo: window.location.origin + '/reset-password',
-      });
-
-      if (error) throw error;
-      alert('Password reset link sent to your email!');
-    } catch (err: any) {
-      setError(err.message || 'Error sending reset password email');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <PageTransition>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-        {/* Decorative elements */}
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
+        {/* Modern animated background */}
+        <div className="absolute inset-0 bg-gradient-blue animate-gradient-x opacity-10"></div>
+        <div className="absolute inset-0 bg-noise-pattern opacity-20"></div>
+        
+        {/* Radial gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-radial from-blue-50 via-slate-50 to-transparent opacity-80"></div>
+        
+        {/* Animated background elements */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-blue-500 opacity-5 rounded-full transform translate-x-1/4 -translate-y-1/4"></div>
-          <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-blue-400 opacity-5 rounded-full transform -translate-x-1/4 translate-y-1/4"></div>
-          <div className="absolute top-1/2 left-1/2 w-1/3 h-1/3 bg-blue-600 opacity-5 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+          {/* Floating circles */}
+          <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"></div>
+          <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float"></div>
+          <div className="absolute top-2/3 right-1/3 w-48 h-48 bg-sky-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow delay-700"></div>
           
           {/* Decorative lines */}
           <div className="absolute top-0 left-0 w-full h-full">
@@ -147,7 +127,7 @@ const LoginPage = () => {
         <div className="w-full max-w-md relative z-10">
           {/* Logo and brand */}
           <div className="text-center mb-8 animate-fadeIn">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-md mb-4 animate-float">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg mb-4 animate-float backdrop-blur-sm bg-white/80 border border-white/20">
               <svg className="w-10 h-10 text-blue-600 transform transition-transform duration-700 hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
@@ -157,9 +137,9 @@ const LoginPage = () => {
           </div>
           
           {/* Login card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-white/20">
             {/* Card header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 animate-slideDown">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 animate-slideDown text-center">
               <h2 className="text-white text-xl font-semibold animate-fadeIn delay-300">Sign in to your account</h2>
               <p className="text-blue-100 text-sm mt-1 animate-fadeIn delay-400">Access your dashboard and properties</p>
             </div>
@@ -201,17 +181,8 @@ const LoginPage = () => {
                 </div>
                 
                 <div className="animate-slideUp delay-600">
-                  <div className="flex items-center justify-between mb-1">
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors duration-300 hover:underline"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                  <div className="relative rounded-md shadow-sm group">
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <div className="relative rounded-md shadow-sm group animate-fadeIn delay-600">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <svg className="h-5 w-5 text-gray-400 transition-colors duration-300 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -220,37 +191,42 @@ const LoginPage = () => {
                     <input
                       id="password"
                       name="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       autoComplete="current-password"
                       required
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-300 ease-in-out hover:border-blue-400"
-                      placeholder="••••••••"
+                      className="block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-300 ease-in-out hover:border-blue-400"
+                      placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <svg className="h-5 w-5 text-gray-400 hover:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5 text-gray-400 hover:text-blue-500 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
-                </div>
-                
-                <div className="flex items-center animate-slideUp delay-700">
-                  <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer transition-colors duration-300"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 hover:text-gray-900 transition-colors duration-300 cursor-pointer">
-                    Remember me
-                  </label>
                 </div>
                 
                 <div className="animate-slideUp delay-800">
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="group w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-button-gradient bg-[length:200%_100%] relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:animate-button-shimmer active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none disabled:animate-none"
                   >
+                    {/* Button glow effect */}
+                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:animate-button-shimmer group-hover:opacity-20"></span>
+                    
                     {isLoading ? (
                       <div className="flex items-center">
                         <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -260,13 +236,16 @@ const LoginPage = () => {
                         Signing in...
                       </div>
                     ) : (
-                      <div className="flex items-center">
+                      <div className="flex items-center relative z-10">
                         <svg className="mr-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                         </svg>
                         Sign in
                       </div>
                     )}
+                    
+                    {/* Bottom border animation */}
+                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-white group-hover:w-full transition-all duration-300 ease-in-out"></span>
                   </button>
                 </div>
               </form>

@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
 import EditBalanceModal, { EditBalanceData } from '../components/EditBalanceModal';
@@ -132,63 +132,45 @@ const BalancePage: FC = () => {
   };
 
   const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '₱0.00';
+    if (amount === null) return '₱0.00';
     return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-  };
+  // Filter and sort balances
+  const filteredBalances = useMemo(() => {
+    let filtered = [...balances];
 
-  const handleProjectChange = (value: string) => {
-    setSelectedProject(value);
-    // Reset search term when changing projects to avoid confusion
-    setSearchTerm('');
-  };
-
-  const filteredBalances = balances.filter(balance => {
-    // First filter by project
-    if (selectedProject && balance['Project'] !== selectedProject) {
-      return false;
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(balance => 
+        balance.Name.toLowerCase().includes(searchLower) ||
+        `${balance.Block}/${balance.Lot}`.toLowerCase().includes(searchLower)
+      );
     }
 
-    // Then filter by search term if present
-    if (!searchTerm) return true;
-    
-    const searchLower = searchTerm.toLowerCase();
-    const searchableFields = [
-      balance['Name'],
-      balance['Block'],
-      balance['Lot'],
-      balance['Project'],
-      balance['Months Paid'],
-      balance['TCP']?.toString(),
-      balance['Amount']?.toString(),
-      balance['Remaining Balance']?.toString()
-    ];
+    // Apply project filter
+    if (selectedProject) {
+      filtered = filtered.filter(balance => balance.Project === selectedProject);
+    }
 
-    return searchableFields.some(field => 
-      field?.toString().toLowerCase().includes(searchLower)
-    );
-  });
+    return filtered;
+  }, [balances, searchTerm, selectedProject]);
 
-  const sortedBalances = [...filteredBalances].sort((a, b) => {
-    const nameA = a.Name || '';
-    const nameB = b.Name || '';
+  // Sort the filtered balances
+  const sortedBalances = useMemo(() => {
+    return [...filteredBalances].sort((a, b) => {
+      const nameA = a.Name || '';
+      const nameB = b.Name || '';
 
-    switch (sortType) {
-      case 'name-asc':
-        return nameA.localeCompare(nameB);
-      case 'name-desc':
-        return nameB.localeCompare(nameA);
-      case 'block-lot-asc':
+      if (sortType === 'name-asc') return nameA.localeCompare(nameB);
+      if (sortType === 'name-desc') return nameB.localeCompare(nameA);
+      if (sortType === 'block-lot-asc') {
         return compareBlockLot(a, b);
-      case 'block-lot-desc':
-        return compareBlockLot(b, a);
-      default:
-        return 0;
-    }
-  });
+      }
+      return compareBlockLot(b, a); // Reverse for descending order
+    });
+  }, [filteredBalances, sortType]);
 
   if (loading) {
     return (
@@ -237,83 +219,64 @@ const BalancePage: FC = () => {
     <PageTransition>
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Balance Records</h1>
-          <p className="text-gray-600">Manage and view client balances</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Balance Records</h1>
+          <div className="mt-1 flex items-center gap-4">
+            <div className="flex items-center text-sm text-gray-600">
+              <span className="font-medium">{filteredBalances.length}</span>
+              <span className="ml-1">records found</span>
+            </div>
+          </div>
         </div>
 
-        {/* Search and Filter Section */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+        {/* Search and Filters Section */}
+        <div className="mb-6 flex flex-wrap justify-between items-center">
+          {/* Search Bar */}
+          <div className="w-72">
             <div className="relative">
               <input
-                id="search"
                 type="text"
-                placeholder="Search by name, block, lot, amount, or months paid..."
                 value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Escape' && setSearchTerm('')}
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition duration-150 ease-in-out"
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name..."
+                className="w-full h-10 pl-3 pr-10 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
               />
-              <div className="absolute left-3 top-3 text-blue-500">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
               </div>
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors duration-150"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
             </div>
           </div>
-          <div className="sm:w-64">
-            <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-            <div className="relative">
+
+          {/* Filters Group */}
+          <div className="flex items-center gap-4">
+            {/* Project Filter */}
+            <div className="w-48">
               <select
-                id="project"
                 value={selectedProject}
-                onChange={(e) => handleProjectChange(e.target.value)}
-                className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm appearance-none transition duration-150 ease-in-out"
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="w-full h-10 pl-3 pr-8 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="">All Projects</option>
-                {PROJECTS.map((project) => (
-                  <option key={project} value={project}>
-                    {project}
-                  </option>
+                {PROJECTS.map((project, index) => (
+                  <option key={index} value={project}>{project}</option>
                 ))}
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-blue-500">
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </div>
             </div>
-          </div>
-          <div className="sm:w-64">
-            <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
-            <div className="relative">
+
+            {/* Sort Filter */}
+            <div className="w-48">
               <select
-                id="sort"
                 value={sortType}
                 onChange={(e) => setSortType(e.target.value as SortType)}
-                className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm appearance-none transition duration-150 ease-in-out"
+                className="w-full h-10 pl-3 pr-8 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 cursor-pointer"
               >
-                <option value="name-asc">Name (A to Z)</option>
-                <option value="name-desc">Name (Z to A)</option>
-                <option value="block-lot-asc">Block/Lot (Ascending)</option>
-                <option value="block-lot-desc">Block/Lot (Descending)</option>
+                <option value="name-asc">Sort by Name (A-Z)</option>
+                <option value="name-desc">Sort by Name (Z-A)</option>
+                <option value="block-lot-asc">Sort by Block/Lot ↑</option>
+                <option value="block-lot-desc">Sort by Block/Lot ↓</option>
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-blue-500">
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </div>
             </div>
           </div>
         </div>
@@ -321,7 +284,7 @@ const BalancePage: FC = () => {
         <div className="bg-white rounded-lg shadow-lg flex flex-col h-[calc(100vh-16rem)] border border-gray-200">
           <div className="p-4 border-b flex justify-between items-center bg-white">
             <span className="text-sm font-medium text-gray-600">
-              Showing <span className="font-semibold text-gray-900">{filteredBalances.length}</span> records
+              Showing <span className="font-semibold text-gray-900">{sortedBalances.length}</span> records
             </span>
           </div>
           <div className="overflow-auto flex-1">
@@ -336,11 +299,11 @@ const BalancePage: FC = () => {
                   <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[120px] border-b border-gray-200">Amount</th>
                   <th className="px-6 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[200px] border-b border-gray-200">Months Paid</th>
                   <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[120px] border-b border-gray-200">TCP</th>
-                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[100px] border-b border-gray-200">Actions</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[100px] border-b border-gray-200">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBalances.length === 0 ? (
+                {sortedBalances.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-10 text-center">
                       <div className="flex flex-col items-center justify-center">
@@ -379,18 +342,40 @@ const BalancePage: FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                         {formatCurrency(balance['TCP'])}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium space-x-2">
                         <button
                           onClick={() => handleEdit(balance)}
-                          className="inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
+                          className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200 group"
+                          title="Edit Balance"
                         >
-                          Edit
+                          <span className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" 
+                                className="h-4 w-4 transform transition-transform group-hover:rotate-12" 
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span className="ml-1 transform transition-transform origin-left group-hover:translate-x-1">Edit</span>
+                          </span>
                         </button>
                         <button
                           onClick={() => handleDeleteConfirm(balance)}
-                          className="inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150"
+                          className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors duration-200 group"
+                          title="Delete Balance"
                         >
-                          Delete
+                          <span className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" 
+                                className="h-4 w-4 transform transition-transform group-hover:-rotate-12" 
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="ml-1 transform transition-transform origin-left group-hover:translate-x-1">Delete</span>
+                          </span>
                         </button>
                       </td>
                     </tr>

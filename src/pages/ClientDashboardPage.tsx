@@ -2,8 +2,11 @@ import React, { useEffect, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
-import { UserCircleIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon, KeyIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon, KeyIcon, ArrowUpTrayIcon, CheckIcon, XCircleIcon, ChevronDownIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import toast from 'react-hot-toast';
 
 // Define types
 interface Client {
@@ -35,7 +38,9 @@ interface TicketSubmissionModalProps {
 }
 
 // Function to fetch client tickets
-const fetchClientTickets = async (clientName: string, supabaseClient: any) => {
+const fetchClientTickets = async (clientName: string, supabaseClient: any): Promise<any[]> => {
+  if (!clientName) return [];
+  
   try {
     console.log('Fetching tickets for client:', clientName);
     
@@ -48,16 +53,15 @@ const fetchClientTickets = async (clientName: string, supabaseClient: any) => {
     
     if (error) {
       console.error('Error fetching tickets:', error);
-      return [];
-    } else if (data && data.length > 0) {
-      console.log('Tickets found:', data);
-      return data;
-    } else {
-      console.log('No tickets found for client:', clientName);
+      toast.error('Failed to load tickets');
       return [];
     }
+    
+    console.log('Tickets found:', data);
+    return data || [];
   } catch (err) {
     console.error('Error in tickets fetch:', err);
+    toast.error('Failed to load tickets');
     return [];
   }
 };
@@ -141,17 +145,7 @@ const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all modal-scrollbar">
-                <div className="absolute top-0 right-0 pt-6 pr-6">
-                  <button
-                    onClick={closeModal}
-                    className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    <span className="sr-only">Close</span>
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
-                
+              <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all modal-scrollbar">
                 <Dialog.Title
                   as="h3"
                   className="text-xl font-semibold leading-6 text-gray-900"
@@ -233,11 +227,11 @@ const TicketSubmissionModal: React.FC<TicketSubmissionModalProps> = ({
                       <button
                         type="submit"
                         disabled={loading}
-                        className="flex w-full justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex w-full justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {loading ? (
                           <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -279,12 +273,25 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
   balanceRecords
 }) => {
   const [file, setFile] = useState<File | null>(null);
-  const [description, setDescription] = useState<string>('');
   const [selectedBlockLot, setSelectedBlockLot] = useState<string | null>(null);
+  const [amount, setAmount] = useState<string>('');
+  const [penalty, setPenalty] = useState<string>('');
+  const [paymentDate, setPaymentDate] = useState<Date | null>(null);
+  const [paymentMonth, setPaymentMonth] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Helper function to handle timezone conversion
+  const formatToLocalDate = (date: Date | null) => {
+    if (!date) return null;
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Date(date.toLocaleString('en-US', { timeZone: userTimezone }));
+  };
 
   // Set initial selected block and lot
   useEffect(() => {
@@ -300,49 +307,71 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setFile(null);
-      setDescription('');
       setSelectedBlockLot(null);
+      setAmount('');
+      setPenalty('');
+      setPaymentDate(null);
+      setPaymentMonth(null);
       setError(null);
       setSuccess(false);
       setPreviewUrl(null);
+      setPreviewError(null);
+      setIsDragging(false);
+      setIsProcessing(false);
     }
   }, [isOpen]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      processFile(selectedFile);
+  const processFile = async (file: File) => {
+    setPreviewError(null);
+    setIsProcessing(true);
+
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      setPreviewError('File size exceeds 10MB limit');
+      setIsProcessing(false);
+      return;
     }
+
+    // Create preview URL for images
+    if (file.type.startsWith('image/')) {
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setPreviewUrl(e.target?.result as string);
+          setIsProcessing(false);
+        };
+        reader.readAsDataURL(file);
+      } catch (err) {
+        setPreviewError('Failed to generate preview');
+        setIsProcessing(false);
+        return;
+      }
+    } else {
+      setPreviewUrl(null);
+      setIsProcessing(false);
+    }
+
+    setFile(file);
   };
 
-  const processFile = (selectedFile: File) => {
-    // Check file type
-    if (!selectedFile.type.includes('image/') && !selectedFile.type.includes('application/pdf')) {
-      setError('Please upload an image or PDF file');
-      setFile(null);
-      return;
-    }
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
     
-    // Check file size (max 5MB)
-    if (selectedFile.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB');
-      setFile(null);
-      return;
-    }
-    
-    setFile(selectedFile);
-    setError(null);
-    
-    // Create preview for images
-    if (selectedFile.type.includes('image/')) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(selectedFile);
-    } else {
-      // For PDFs, just show an icon or text
-      setPreviewUrl(null);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      processFile(droppedFile);
     }
   };
 
@@ -353,47 +382,59 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
 
     try {
       if (!file) {
+        toast.error('Please select a receipt file to upload');
         throw new Error('Please select a receipt file to upload');
       }
 
-      // 1. Upload file to storage bucket
+      if (!selectedBlockLot || !amount || !paymentDate || !paymentMonth) {
+        toast.error('Please fill in all required fields');
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Create folder path for client's receipts
       const fileExt = file.name.split('.').pop();
-      const timestamp = Date.now();
-      const fileName = `${timestamp}.${fileExt}`;
+      // Format the date as YYYY-MM-DD
+      const paymentDateFormatted = paymentDate ? new Date(paymentDate).toISOString().split('T')[0] : '';
+      // Create standardized filename: YYYY-MM-DD_BlockX-LotY.ext
+      const blockLotFormatted = selectedBlockLot?.replace(/\s+/g, '').replace('Block', '').replace('Lot', '-') || '';
+      const fileName = `${paymentDateFormatted}_${blockLotFormatted}.${fileExt}`;
+      // Create path with client folder
       const filePath = `${clientName}/${fileName}`;
       
-      console.log('Uploading payment receipt to path:', filePath);
-      
+      toast.loading('Uploading receipt...');
       const { error: uploadError } = await supabase.storage
         .from('Payment Receipt')
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true }); // Use upsert to replace if exists
 
-      if (uploadError) throw uploadError;
-      
-      console.log('Payment receipt uploaded successfully to:', filePath);
+      if (uploadError) {
+        toast.error('Failed to upload receipt');
+        throw uploadError;
+      }
 
-      // 2. Save payment metadata to Payment table
+      toast.loading('Saving payment details...');
+      // Save payment data to Payment table with the path including client folder
       const { error: dbError } = await supabase
         .from('Payment')
         .insert([
           {
-            Name: clientName,
-            Description: description || null,
-            receipt_path: filePath,
-            Status: 'pending', // Initial status, admin will verify
-            Block: selectedBlockLot ? selectedBlockLot.split(' ')[1] : null,
-            Lot: selectedBlockLot ? selectedBlockLot.split(' ')[3] : null,
+            "receipt_path": filePath, // Store the full path including client folder
+            "Block & Lot": selectedBlockLot,
+            "Payment Amount": parseFloat(amount),
+            "Penalty Amount": penalty ? parseFloat(penalty) : null,
+            "Date of Payment": formatToLocalDate(paymentDate)?.toISOString(),
+            "Month of Payment": formatToLocalDate(paymentMonth)?.toISOString(),
+            "Name": clientName,
+            "Status": "Pending", // Changed to capital P to match standard status format
             created_at: new Date().toISOString()
           }
         ]);
 
       if (dbError) {
-        console.error('Error saving payment metadata:', dbError);
-        setError(`Error saving payment information: ${dbError.message}`);
-        setLoading(false);
-        return;
+        toast.error('Failed to save payment details');
+        throw new Error(`Error saving payment information: ${dbError.message}`);
       }
 
+      toast.success('Payment submitted successfully!');
       setSuccess(true);
       
       // Close modal after successful submission
@@ -401,8 +442,11 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
         closeModal();
         setSuccess(false);
         setFile(null);
-        setDescription('');
         setSelectedBlockLot(null);
+        setAmount('');
+        setPenalty('');
+        setPaymentDate(null);
+        setPaymentMonth(null);
         setPreviewUrl(null);
       }, 3000);
     } catch (err: any) {
@@ -439,178 +483,371 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all modal-scrollbar">
-                <div className="absolute top-0 right-0 pt-6 pr-6">
-                  <button
-                    onClick={closeModal}
-                    className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  >
-                    <span className="sr-only">Close</span>
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
-                
-                <Dialog.Title
-                  as="h3"
-                  className="text-xl font-semibold leading-6 text-gray-900"
-                >
-                  Upload Payment Receipt
-                </Dialog.Title>
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500">
-                    Please upload your payment receipt.
-                  </p>
-                </div>
-
+              <Dialog.Panel className="relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-6xl">
                 {success ? (
-                  <div className="mt-6">
-                    <div className="rounded-lg bg-green-50 p-6 text-center">
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                        <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
+                  <div className="p-6 sm:p-8">
+                    <div className="rounded-xl bg-gradient-to-br from-green-50 to-green-100 p-6 text-center">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 ring-8 ring-green-50">
+                        <CheckIcon className="h-8 w-8 text-green-600 animate-bounce" />
                       </div>
-                      <p className="mt-4 text-lg font-semibold text-green-800">Payment receipt submitted successfully!</p>
-                      <p className="mt-2 text-sm text-green-700">Our team will verify your payment shortly.</p>
+                      <p className="text-lg font-semibold text-green-800">Payment receipt uploaded successfully!</p>
+                      <p className="text-sm text-green-700">Your payment is being processed. You'll receive a confirmation soon.</p>
+                      <button
+                        onClick={closeModal}
+                        className="mt-4 inline-flex items-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-all duration-200"
+                      >
+                        Close
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-                    <div className="space-y-6 bg-white">
-                      {/* Block and Lot Selection */}
-                      <div>
-                        <label className="block text-sm font-medium leading-6 text-gray-900 mb-2">
-                          Select Block and Lot
-                        </label>
-                        <div className="relative">
-                          <select
-                            id="block-lot-selector"
-                            value={selectedBlockLot || ''}
-                            onChange={(e) => setSelectedBlockLot(e.target.value)}
-                            className="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
-                          >
-                            {balanceRecords.map((record, index) => (
-                              <option 
-                                key={index} 
-                                value={`Block ${record.Block} Lot ${record.Lot}`}
-                              >
-                                Block {record.Block} Lot {record.Lot}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
+                  <div className="flex flex-col">
+                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 px-6 py-6 sm:px-8 sm:py-8">
+                      <Dialog.Title className="text-xl font-semibold text-white">Upload Payment Receipt</Dialog.Title>
+                      <p className="mt-2 text-sm text-blue-100">Please provide your payment details and upload the receipt</p>
+                    </div>
 
-                      {/* File Upload Area */}
-                      <div>
-                        <label className="block text-sm font-medium leading-6 text-gray-900 mb-2">
-                          Payment Receipt
-                        </label>
-                        <div 
-                          className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10"
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                              processFile(e.dataTransfer.files[0]);
-                            }
-                          }}
-                        >
-                          <div className="text-center">
-                            {previewUrl ? (
-                              <div className="mb-4">
-                                <img src={previewUrl} alt="Receipt preview" className="mx-auto h-32 w-auto object-contain" />
+                    <div className="px-6 py-6 sm:px-8 sm:py-8">
+                      <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Left Column */}
+                          <div className="space-y-6">
+                            {/* Block and Lot Selection */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Block and Lot</label>
+                              <div className="relative">
+                                <select
+                                  value={selectedBlockLot || ''}
+                                  onChange={(e) => setSelectedBlockLot(e.target.value)}
+                                  className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-4 py-2.5 pr-10 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
+                                  required
+                                >
+                                  <option value="">Select Block and Lot</option>
+                                  {balanceRecords.map((record, index) => (
+                                    <option key={index} value={`Block ${record.Block} Lot ${record.Lot}`}>
+                                      Block {record.Block} Lot {record.Lot}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                  <ChevronDownIcon className="h-5 w-5" />
+                                </div>
                               </div>
-                            ) : (
-                              <DocumentArrowUpIcon className="mx-auto h-12 w-12 text-gray-300" />
-                            )}
-                            
-                            <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                              <label
-                                htmlFor="file-upload"
-                                className="relative cursor-pointer rounded-md bg-white font-semibold text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 hover:text-blue-500"
-                              >
-                                <span>Upload a file</span>
-                                <input 
-                                  id="file-upload" 
-                                  name="file-upload" 
-                                  type="file" 
-                                  className="sr-only"
-                                  onChange={handleFileChange}
-                                  accept="image/*,application/pdf"
-                                />
-                              </label>
-                              <p className="pl-1">or drag and drop</p>
                             </div>
-                            <p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF or PDF up to 5MB</p>
-                            {file && (
-                              <p className="mt-2 text-xs text-gray-500">
-                                Selected: {file.name}
-                              </p>
+
+                            {/* Amount Fields */}
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                                <div className="relative">
+                                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                                    <span className="text-gray-500 sm:text-sm">₱</span>
+                                  </div>
+                                  <input
+                                    type="number"
+                                    id="amount"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                    className="block w-full rounded-lg border border-gray-300 pl-8 pr-4 py-2.5 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
+                                    placeholder="0.00"
+                                    required
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Penalty (if applicable)</label>
+                                <div className="relative">
+                                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                                    <span className="text-gray-500 sm:text-sm">₱</span>
+                                  </div>
+                                  <input
+                                    type="number"
+                                    id="penalty"
+                                    value={penalty}
+                                    onChange={(e) => setPenalty(e.target.value)}
+                                    className="block w-full rounded-lg border border-gray-300 pl-8 pr-4 py-2.5 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Date Fields */}
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Date of Payment</label>
+                                <div className="relative">
+                                  <DatePicker
+                                    selected={paymentDate}
+                                    onChange={(date: Date | null) => date && setPaymentDate(formatToLocalDate(date))}
+                                    dateFormat="MMMM d, yyyy"
+                                    placeholderText="Select date"
+                                    className="block w-full rounded-lg border border-gray-300 pl-4 pr-10 py-2.5 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
+                                    calendarClassName="shadow-xl rounded-xl border-0 overflow-hidden"
+                                    showPopperArrow={false}
+                                    renderCustomHeader={({
+                                      date,
+                                      decreaseMonth,
+                                      increaseMonth,
+                                      prevMonthButtonDisabled,
+                                      nextMonthButtonDisabled,
+                                    }) => (
+                                      <div className="flex flex-col space-y-2 p-4 bg-white border-b">
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            onClick={decreaseMonth}
+                                            disabled={prevMonthButtonDisabled}
+                                            type="button"
+                                            className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
+                                              prevMonthButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                                            }`}
+                                          >
+                                            <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
+                                          </button>
+                                          <h2 className="text-2xl font-semibold text-gray-900">
+                                            {date.toLocaleString('default', { month: 'long' })}
+                                          </h2>
+                                          <button
+                                            onClick={increaseMonth}
+                                            disabled={nextMonthButtonDisabled}
+                                            type="button"
+                                            className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
+                                              nextMonthButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                                            }`}
+                                          >
+                                            <ChevronRightIcon className="h-5 w-5 text-gray-600" />
+                                          </button>
+                                        </div>
+                                        <div className="text-center">
+                                          <p className="text-sm text-gray-500 font-medium">
+                                            {date.getFullYear()}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    )}
+                                    dayClassName={(date: Date | null) =>
+                                      `hover:bg-gray-50 w-10 h-10 mx-auto flex items-center justify-center text-sm rounded-lg transition-colors text-gray-700
+                                      ${date && date.toDateString() === (paymentDate ? paymentDate.toDateString() : '') 
+                                        ? 'bg-blue-50 text-blue-600 font-semibold hover:bg-blue-100'
+                                        : 'text-gray-700'}`
+                                    }
+                                    required
+                                  />
+                                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                                    <CalendarIcon className="h-5 w-5" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Month of Payment</label>
+                                <div className="relative">
+                                  <DatePicker
+                                    selected={paymentMonth}
+                                    onChange={(date: Date | null) => date && setPaymentMonth(formatToLocalDate(date))}
+                                    dateFormat="MMMM yyyy"
+                                    showMonthYearPicker
+                                    placeholderText="Select month"
+                                    className="block w-full rounded-lg border border-gray-300 pl-4 pr-10 py-2.5 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
+                                    calendarClassName="shadow-xl rounded-xl border-0 overflow-hidden"
+                                    showPopperArrow={false}
+                                    renderCustomHeader={({
+                                      date,
+                                      decreaseYear,
+                                      increaseYear,
+                                      prevYearButtonDisabled,
+                                      nextYearButtonDisabled,
+                                    }) => (
+                                      <div className="flex flex-col space-y-2 p-4 bg-white border-b">
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            onClick={decreaseYear}
+                                            disabled={prevYearButtonDisabled}
+                                            type="button"
+                                            className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
+                                              prevYearButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                                            }`}
+                                          >
+                                            <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
+                                          </button>
+                                          <h2 className="text-2xl font-semibold text-gray-900">
+                                            {date.getFullYear()}
+                                          </h2>
+                                          <button
+                                            onClick={increaseYear}
+                                            disabled={nextYearButtonDisabled}
+                                            type="button"
+                                            className={`p-1.5 rounded-lg hover:bg-gray-100 transition-colors ${
+                                              nextYearButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                                            }`}
+                                          >
+                                            <ChevronRightIcon className="h-5 w-5 text-gray-600" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    monthClassName={(date: Date | null) => {
+                                      if (!date) return 'text-gray-700';
+                                      const isSelected = paymentMonth && date.toISOString().slice(0, 7) === paymentMonth.toISOString().slice(0, 7);
+                                      return `hover:bg-gray-50 py-3 rounded-lg transition-colors text-sm
+                                        ${isSelected ? 'bg-blue-50 text-blue-600 font-semibold hover:bg-blue-100' : 'text-gray-700'}`;
+                                    }}
+                                    required
+                                  />
+                                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                                    <CalendarIcon className="h-5 w-5" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Column - File Upload */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Receipt</label>
+                            <div 
+                              onDragOver={handleDragOver}
+                              onDragLeave={handleDragLeave}
+                              onDrop={handleDrop}
+                              className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 sm:p-8 ${
+                                isDragging
+                                  ? 'border-blue-500 bg-blue-50'
+                                  : 'border-gray-300 hover:border-blue-400'
+                              } transition-all duration-300`}
+                              style={{ minHeight: '280px' }}
+                            >
+                              {isProcessing ? (
+                                <div className="text-center">
+                                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-400 mb-4 ring-8 ring-gray-50 animate-pulse">
+                                    <DocumentArrowUpIcon className="h-8 w-8" />
+                                  </div>
+                                  <p className="text-sm text-gray-500">Processing file...</p>
+                                </div>
+                              ) : file ? (
+                                <div className="text-center">
+                                  {previewUrl && file.type.startsWith('image/') ? (
+                                    <div className="mb-4">
+                                      <img
+                                        src={previewUrl}
+                                        alt="Preview"
+                                        className="mx-auto h-32 w-auto rounded-lg border border-gray-200 object-cover shadow-sm"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-4 ring-8 ring-blue-50">
+                                      <DocumentArrowUpIcon className="h-8 w-8" />
+                                    </div>
+                                  )}
+                                  <div className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {(file.size / (1024 * 1024)).toFixed(2)} MB
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFile(null);
+                                        setPreviewUrl(null);
+                                        setPreviewError(null);
+                                      }}
+                                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                                    >
+                                      <XMarkIcon className="h-4 w-4 mr-1.5" />
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center">
+                                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-400 mb-4 ring-8 ring-gray-50">
+                                    <ArrowUpTrayIcon className="h-8 w-8" />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {isDragging ? 'Drop your file here' : 'Drop your file here, or'}
+                                    </p>
+                                    <label className="relative cursor-pointer">
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
+                                        <ArrowUpTrayIcon className="h-4 w-4 mr-1.5" />
+                                        Browse Files
+                                        <input
+                                          type="file"
+                                          className="sr-only"
+                                          onChange={(e) => {
+                                            if (e.target.files && e.target.files[0]) {
+                                              processFile(e.target.files[0]);
+                                            }
+                                          }}
+                                          accept="image/*,.pdf"
+                                        />
+                                      </span>
+                                    </label>
+                                    <p className="text-xs text-gray-500">PNG, JPG, or PDF up to 10MB</p>
+                                  </div>
+                                </div>
+                              )}
+                              {previewError && (
+                                <div className="absolute inset-x-0 -bottom-6">
+                                  <p className="text-xs text-red-600">{previewError}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-gray-50 px-6 py-4 sm:px-8 flex items-center justify-end space-x-3 border-t border-gray-100 -mx-6 sm:-mx-8 mt-6">
+                          <button
+                            type="button"
+                            onClick={closeModal}
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className={`inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white shadow-sm transition-all duration-200 ${
+                              loading 
+                                ? 'bg-blue-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                            }`}
+                          >
+                            {loading ? (
+                              <>
+                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <ArrowUpTrayIcon className="-ml-1 mr-2 h-4 w-4" />
+                                Upload Receipt
+                              </>
                             )}
-                          </div>
+                          </button>
                         </div>
-                      </div>
 
-                      {/* Description */}
-                      <div>
-                        <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-900 mb-2">
-                          Description
-                        </label>
-                        <div className="mt-2">
-                          <textarea
-                            id="description"
-                            rows={4}
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm"
-                            placeholder="Please provide a brief description of your payment"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {error && (
-                      <div className="rounded-md bg-red-50 p-4">
-                        <div className="flex">
-                          <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
-                            </svg>
+                        {/* Error Message */}
+                        {error && (
+                          <div className="bg-red-50 rounded-lg p-4 mt-4">
+                            <div className="flex">
+                              <div className="flex-shrink-0">
+                                <XCircleIcon className="h-5 w-5 text-red-400" />
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">Upload failed</h3>
+                                <p className="text-sm text-red-700 mt-1">{error}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="ml-3">
-                            <p className="text-sm text-red-700">{error}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mt-6">
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex w-full justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {loading ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Submitting...
-                          </>
-                        ) : (
-                          'Send Payment'
                         )}
-                      </button>
+                      </form>
                     </div>
-                  </form>
+                  </div>
                 )}
               </Dialog.Panel>
             </Transition.Child>
@@ -649,13 +886,13 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
     // Validate passwords
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+      toast.error('Password must be at least 6 characters');
       setLoading(false);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      toast.error('Passwords do not match');
       setLoading(false);
       return;
     }
@@ -814,14 +1051,14 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                       <button
                         type="button"
                         onClick={closeModal}
-                        className="flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                        className="flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                       >
                         Change Later
                       </button>
                       <button
                         type="submit"
                         disabled={loading}
-                        className="flex justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {loading ? (
                           <>
@@ -837,6 +1074,278 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                       </button>
                     </div>
                   </form>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
+
+// View Payment Modal Props
+interface ViewPaymentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  payments: any[];
+  isLoading: boolean;
+  clientName: string;
+}
+
+// View Payment Modal Component
+const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, payments, isLoading, clientName }) => {
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+
+  const handleViewReceipt = async (payment: any) => {
+    if (!payment || !clientName) {
+      toast.error('Payment information not found');
+      return;
+    }
+
+    setIsLoadingReceipt(true);
+    setIsReceiptModalOpen(true);
+    setReceiptUrl(null);
+
+    try {
+      // Get receipt using the path that includes client folder
+      const receiptPath = payment.receipt_path;
+      console.log('Fetching receipt:', receiptPath);
+      
+      const { data, error } = await supabase.storage
+        .from('Payment Receipt')
+        .download(receiptPath);
+
+      if (error) {
+        console.error('Error fetching receipt:', error);
+        toast.error('Failed to load receipt');
+        return;
+      }
+
+      if (!data) {
+        console.error('Receipt not found');
+        toast.error('Receipt not found');
+        return;
+      }
+
+      // Create a URL for the downloaded file
+      const url = URL.createObjectURL(data);
+      console.log('Created object URL for receipt:', url);
+      setReceiptUrl(url);
+      
+      // Clean up the URL when the modal is closed
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        setReceiptUrl(null);
+      };
+
+      return cleanup;
+    } catch (err) {
+      console.error('Error viewing receipt:', err);
+      toast.error('Failed to view receipt. Please try again later.');
+    } finally {
+      setIsLoadingReceipt(false);
+    }
+  };
+
+  return (
+    <>
+      <Transition appear show={isOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={onClose}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                    Payment History
+                  </Dialog.Title>
+                  
+                  {isLoading ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : payments.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Block & Lot</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penalty Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month of Payment</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {payments.map((payment, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(payment["Date of Payment"]).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {payment["Block & Lot"]}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ₱{payment["Payment Amount"].toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ₱{payment["Penalty Amount"]?.toLocaleString() || 'N/A'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(payment["Month of Payment"]).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                  ${payment.Status === "Approved" ? "bg-green-100 text-green-800" : 
+                                    payment.Status === "Rejected" ? "bg-red-100 text-red-800" : 
+                                    payment.Status === "Pending" ? "bg-yellow-100 text-yellow-800" : 
+                                    payment.Status === "closed" ? "bg-gray-100 text-gray-800" : 
+                                    "bg-gray-100 text-gray-800"}`}
+                                >
+                                  {payment.Status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <button 
+                                  onClick={() => handleViewReceipt(payment)}
+                                  className="text-blue-600 hover:text-blue-800 focus:outline-none flex items-center"
+                                >
+                                  <EyeIcon className="h-4 w-4 mr-1" />
+                                  View Receipt
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-500 py-4">No payment records found.</p>
+                  )}
+
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-blue-100 px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 transition-all duration-200"
+                      onClick={onClose}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      <ViewReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => {
+          setIsReceiptModalOpen(false);
+          if (receiptUrl) {
+            URL.revokeObjectURL(receiptUrl);
+            setReceiptUrl(null);
+          }
+        }}
+        receiptUrl={receiptUrl}
+        isLoading={isLoadingReceipt}
+      />
+    </>
+  );
+};
+
+// View Receipt Modal Props
+interface ViewReceiptModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  receiptUrl: string | null;
+  isLoading: boolean;
+}
+
+// View Receipt Modal Component
+const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, receiptUrl, isLoading }) => {
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4 flex justify-between items-center">
+                  Payment Receipt
+                  <button
+                    onClick={onClose}
+                    className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </Dialog.Title>
+
+                {isLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : receiptUrl ? (
+                  <div className="relative" style={{ height: '70vh' }}>
+                    <iframe
+                      src={receiptUrl}
+                      className="w-full h-full rounded-lg border border-gray-200"
+                      title="Payment Receipt"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                      <XCircleIcon className="h-6 w-6 text-red-600" />
+                    </div>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Receipt Found</h3>
+                    <p className="text-sm text-gray-500">The receipt could not be loaded.</p>
+                  </div>
                 )}
               </Dialog.Panel>
             </Transition.Child>
@@ -869,6 +1378,10 @@ const ClientDashboardPage: React.FC = () => {
   // State for client tickets
   const [clientTickets, setClientTickets] = useState<any[]>([]);
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  // State for payment history
+  const [isViewPaymentModalOpen, setIsViewPaymentModalOpen] = useState(false);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
 
   // Helper function to check if a value is empty (null, undefined, empty string, or zero)
   const isEmpty = (value: any): boolean => {
@@ -1096,133 +1609,134 @@ const ClientDashboardPage: React.FC = () => {
 
   // Function to get and download document for a client
   const handleDownloadDocument = async () => {
-    if (!clientDocument) return;
+    if (!client?.Name) return;
     
     try {
-      setIsLoadingDocument(true); // Set loading state to true when download starts
-      console.log("Attempting to download document for client:", clientDocument.Name);
+      setIsLoadingDocument(true);
+      console.log('Document object:', clientDocument);
       
-      // List files in the client's folder
+      // Get the client name from the document
+      const clientName = client.Name;
+      const clientNameWithUnderscore = clientName.replace(/\s+/g, '_');
+      
+      // First try to find files in root
+      const { data: rootFiles, error: rootError } = await supabase.storage
+        .from('Clients Document')
+        .list();
+        
+      if (rootError) {
+        console.error('Error listing root files:', rootError);
+        throw rootError;
+      }
+      
+      console.log('Files in root:', rootFiles);
+      
+      // Find files that match the client's name pattern in root
+      const matchingRootFiles = rootFiles.filter(file => 
+        file.name.toLowerCase().startsWith(clientNameWithUnderscore.toLowerCase())
+      );
+      
+      console.log('Matching root files:', matchingRootFiles);
+      
+      if (matchingRootFiles && matchingRootFiles.length > 0) {
+        // Found files in root, download the most recent one
+        const mostRecentFile = matchingRootFiles[0];
+        
+        // Download the file
+        const { data, error: downloadError } = await supabase.storage
+          .from('Clients Document')
+          .download(mostRecentFile.name);
+
+        if (downloadError) {
+          console.error('Error downloading file:', downloadError);
+          throw downloadError;
+        }
+
+        if (!data) {
+          throw new Error('No data received from storage');
+        }
+        
+        console.log('File downloaded successfully, creating blob URL');
+        
+        // Create a download link for the file
+        const url = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = mostRecentFile.name; // Keep original name for root files
+        document.body.appendChild(a);
+        
+        console.log('Triggering download');
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          console.log('Cleanup completed');
+        }, 100);
+        
+        toast.success('Document downloaded successfully!');
+        return;
+      }
+      
+      // If no files found in root, try the client's folder
+      console.log('No files in root, checking folder:', clientName);
+      
       const { data: files, error: listError } = await supabase.storage
         .from('Clients Document')
-        .list(clientDocument.Name);
+        .list(clientName);
       
       if (listError) {
         console.error('Error listing files in folder:', listError);
         throw listError;
       }
       
+      if (!files || files.length === 0) {
+        throw new Error(`No files found for client ${clientName}`);
+      }
+      
       console.log('Files found in folder:', files);
       
-      if (!files || files.length === 0) {
-        // If no files found in the folder, try the old method of searching by name prefix
-        console.log("No files found in client folder, trying alternative method...");
-        
-        // Sanitize the client name to match the upload format
-        const sanitizedClientName = clientDocument.Name
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
-          .replace(/[^a-zA-Z0-9]/g, '_');   // Replace non-alphanumeric with underscore
-        
-        console.log("Sanitized client name:", sanitizedClientName);
-        
-        // List all files in the root of the bucket
-        const { data: rootFiles, error } = await supabase.storage
-          .from('Clients Document')
-          .list();
-          
-        if (error) {
-          console.error("Error listing files:", error);
-          throw error;
-        }
-        
-        console.log('All files in bucket root:', rootFiles);
-        
-        // Find files that match this client's sanitized name pattern
-        const clientFiles = rootFiles.filter(file => 
-          file.name.startsWith(sanitizedClientName + '_')
-        );
-        
-        console.log('Files found for client in root:', clientFiles);
-        
-        if (clientFiles && clientFiles.length > 0) {
-          // Use the first file that matches
-          const filePath = clientFiles[0].name;
-          console.log('Using file from root:', filePath);
-          
-          // Get the download URL
-          const { data, error: downloadError } = await supabase.storage
-            .from('Clients Document')
-            .download(filePath);
-  
-          if (downloadError) {
-            console.error("Error downloading file:", downloadError);
-            throw downloadError;
-          }
-          
-          if (data) {
-            // Create a download link
-            const url = URL.createObjectURL(data);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filePath; // Use the original filename
-            document.body.appendChild(a);
-            a.click();
-            
-            // Clean up
-            setTimeout(() => {
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-            }, 100);
-            
-            console.log("Document downloaded successfully");
-          }
-        } else {
-          console.error('No files found for this client.');
-          alert('Document not found. Please contact support.');
-        }
-      } else {
-        // Get the most recent file (assuming the timestamp is in the filename)
-        const mostRecentFile = files.sort((a, b) => {
-          // Extract timestamp from filename (assuming format: timestamp_filename)
-          const timestampA = parseInt(a.name.split('_')[0]) || 0;
-          const timestampB = parseInt(b.name.split('_')[0]) || 0;
-          return timestampB - timestampA; // Sort descending (newest first)
-        })[0];
-        
-        console.log('Most recent file:', mostRecentFile);
-        
-        // Download the file from the client's folder
-        const { data, error: downloadError } = await supabase.storage
-          .from('Clients Document')
-          .download(`${clientDocument.Name}/${mostRecentFile.name}`);
-        
-        if (downloadError) {
-          console.error('Error downloading file:', downloadError);
-          throw downloadError;
-        }
-        
-        // Create a download link for the file
-        const url = URL.createObjectURL(data);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = mostRecentFile.name.split('_').slice(1).join('_'); // Remove timestamp from filename
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 100);
-        
-        console.log("Document downloaded successfully");
+      // Get the most recent file from folder
+      const mostRecentFile = files.sort((a, b) => {
+        const timestampA = parseInt(a.name.split('_')[0]) || 0;
+        const timestampB = parseInt(b.name.split('_')[0]) || 0;
+        return timestampB - timestampA;
+      })[0];
+      
+      // Download the file from folder
+      const { data, error: downloadError } = await supabase.storage
+        .from('Clients Document')
+        .download(`${clientName}/${mostRecentFile.name}`);
+      
+      if (downloadError) {
+        console.error('Error downloading file:', downloadError);
+        throw downloadError;
       }
-    } catch (error) {
+      
+      // Create a download link for the file
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = mostRecentFile.name.split('_').slice(1).join('_');
+      document.body.appendChild(a);
+      
+      console.log('Triggering download');
+      a.click();
+      
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        console.log('Cleanup completed');
+      }, 100);
+      
+      toast.success('Document downloaded successfully!');
+    } catch (error: any) {
       console.error('Error downloading document:', error);
-      alert('Error downloading document. Please try again later.');
+      toast.error('Error downloading document: ' + (error.message || 'Please try again.'));
     } finally {
-      setIsLoadingDocument(false); // Reset loading state when download completes or fails
+      setIsLoadingDocument(false);
     }
   };
 
@@ -1275,7 +1789,7 @@ const ClientDashboardPage: React.FC = () => {
   
   // Function to fetch client tickets
   const fetchClientTicketsForComponent = async () => {
-    if (!client) return;
+    if (!client?.Name) return;
     
     setIsLoadingTickets(true);
     try {
@@ -1296,6 +1810,44 @@ const ClientDashboardPage: React.FC = () => {
       fetchClientTicketsForComponent();
     }
   }, [client]);
+  
+  // Fetch payments
+  const fetchPayments = async () => {
+    if (!client?.Name) return;
+    
+    setIsLoadingPayments(true);
+    try {
+      const { data, error } = await supabase
+        .from('Payment')
+        .select('*')
+        .eq('Name', client.Name)
+        .order('created_at', { ascending: false });
+
+      console.log('Fetched payments:', data);
+      if (error) throw error;
+      
+      // Normalize payment status to be consistent
+      const normalizedData = data?.map(payment => ({
+        ...payment,
+        Status: payment.Status?.charAt(0).toUpperCase() + payment.Status?.slice(1).toLowerCase()
+      })) || [];
+
+      console.log('Normalized payments:', normalizedData);
+      setPayments(normalizedData);
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      toast.error('Failed to load payments');
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  };
+
+  // Call fetchPayments when client data is available
+  useEffect(() => {
+    if (client?.Name) {
+      fetchPayments();
+    }
+  }, [client?.Name]);
   
   // Loading state UI
   if (loading) {
@@ -1320,7 +1872,7 @@ const ClientDashboardPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full">
             <div className="bg-red-100 rounded-full p-3 w-12 h-12 flex items-center justify-center text-red-600 mx-auto mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-gray-800 mb-3 text-center">Error Loading Dashboard</h2>
@@ -1328,7 +1880,7 @@ const ClientDashboardPage: React.FC = () => {
             <div className="flex justify-center">
               <button 
                 onClick={() => window.location.reload()} 
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
+                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 014 3.7M4.031 9.865a8.25 8.25 0 014 3.7l3.181-3.182m0-4.991v4.99" />
@@ -1360,15 +1912,27 @@ const ClientDashboardPage: React.FC = () => {
             <div className="flex items-center">
               {/* Mobile menu button */}
               <button 
-                className="md:hidden p-2 rounded-full text-white hover:bg-white/10 transition mr-2"
+                className="md:hidden p-2 rounded-full text-white hover:text-gray-200 focus:outline-none"
                 onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="Menu"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d={menuOpen ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"} />
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  strokeWidth={1.5} 
+                  stroke="currentColor" 
+                  className="w-6 h-6"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    d={menuOpen ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"}
+                  />
                 </svg>
               </button>
               
-              <button 
+              <button
                 onClick={handleSignOut}
                 className="ml-2 p-2 rounded-full hover:bg-white/10 transition"
                 aria-label="Logout"
@@ -1393,7 +1957,7 @@ const ClientDashboardPage: React.FC = () => {
                   <div className="mb-6">
                     <label htmlFor="lot-selector" className="block mb-2 text-lg font-medium text-white items-center">
                       <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"></path>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"></path>
                       </svg>
                       Select Block and Lot
                     </label>
@@ -1402,21 +1966,18 @@ const ClientDashboardPage: React.FC = () => {
                         id="lot-selector"
                         value={selectedLot || ''}
                         onChange={handleLotChange}
-                        className="w-full md:w-auto appearance-none px-4 py-3 bg-gradient-to-r from-blue-800 to-blue-700 text-white text-lg font-medium rounded-lg border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50 pr-10 transition-all duration-300 hover:shadow-xl hover:border-white/50"
+                        className="w-full md:w-auto appearance-none px-4 py-3 bg-gradient-to-r from-blue-800 to-blue-700 text-white text-lg font-medium rounded-lg border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50 pr-10 transition-all duration-300"
                         style={{ color: 'white', backgroundColor: '#1e40af' }}
                       >
                         {balanceRecords.map((record, index) => (
-                          <option 
-                            key={index} 
-                            value={`Block ${record.Block} Lot ${record.Lot}`}
-                          >
+                          <option key={index} value={`Block ${record.Block} Lot ${record.Lot}`}>
                             Block {record.Block} Lot {record.Lot}
                           </option>
                         ))}
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
-                        <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                         </svg>
                       </div>
                     </div>
@@ -1432,11 +1993,11 @@ const ClientDashboardPage: React.FC = () => {
                 ) : (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {/* Property Details Card */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl sm:col-span-2 lg:col-span-3 mb-4">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl sm:col-span-2 lg:col-span-3">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M21 12a9 9 0 0118 0 9 9 0 012-18 9 9 0 01-18 0z" />
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Property Details</p>
@@ -1451,106 +2012,49 @@ const ClientDashboardPage: React.FC = () => {
                           <p className="text-xl font-bold text-white">{selectedBalanceData.Lot}</p>
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-white/70">Total Contract Price (TCP)</p>
-                          <p className="text-xl font-bold text-white">
-                            {(() => {
-                              try {
-                                // Check if the value exists
-                                if (isEmpty(selectedBalanceData.TCP)) {
-                                  return 'N/A';
-                                }
-                                
-                                // Try to convert to number if it's a string
-                                const num = safelyParseNumber(selectedBalanceData.TCP);
-                                if (num === null) {
-                                  return 'N/A';
-                                }
-                                return `₱${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-                              } catch (e) {
-                                console.error('Error formatting TCP:', e);
-                                return 'N/A';
-                              }
-                            })()}
-                          </p>
+                          <p className="text-sm text-white/70">TCP</p>
+                          <p className="text-xl font-bold text-white italic">Coming Soon</p>
                         </div>
                       </div>
                     </div>
-
+                    
                     {/* Current Balance Card */}
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Remaining Balance</p>
                       </div>
-                      <p className="text-2xl font-bold text-white md:text-3xl">
-                        {(() => {
-                          try {
-                            // Check if the value exists
-                            if (isEmpty(selectedBalanceData['Remaining Balance'])) {
-                              return 'N/A';
-                            }
-                            
-                            // Try to convert to number if it's a string
-                            const num = safelyParseNumber(selectedBalanceData['Remaining Balance']);
-                            if (num === null) {
-                              return 'N/A';
-                            }
-                            return `₱${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-                          } catch (e) {
-                            console.error('Error formatting Remaining Balance:', e);
-                            return 'N/A';
-                          }
-                        })()}
-                      </p>
+                      <p className="text-2xl font-bold text-white italic">Coming Soon</p>
                     </div>
                     
                     {/* Amount Paid Card */}
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-16.5 0h.008v.008H6V10.5z" />
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Amount Paid</p>
                       </div>
-                      <p className="text-2xl font-bold text-white md:text-3xl">
-                        {(() => {
-                          try {
-                            // Check if the value exists
-                            if (isEmpty(selectedBalanceData['Amount'])) {
-                              return 'N/A';
-                            }
-                            
-                            // Try to convert to number if it's a string
-                            const num = safelyParseNumber(selectedBalanceData['Amount']);
-                            if (num === null) {
-                              return 'N/A';
-                            }
-                            return `₱${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-                          } catch (e) {
-                            console.error('Error formatting Amount:', e);
-                            return 'N/A';
-                          }
-                        })()}
-                      </p>
+                      <p className="text-2xl font-bold text-white italic">Coming Soon</p>
                     </div>
                     
                     {/* Months Paid Card */}
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
                       <div className="flex items-center mb-3">
                         <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                           </svg>
                         </div>
                         <p className="text-base text-white font-medium md:text-lg">Months Paid</p>
                       </div>
-                      <p className="text-lg font-bold text-white md:text-xl">{selectedBalanceData['Months Paid'] || 'None'}</p>
+                      <p className="text-lg font-bold text-white italic">Coming Soon</p>
                     </div>
                   </div>
                 )}
@@ -1585,7 +2089,7 @@ const ClientDashboardPage: React.FC = () => {
               <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center md:text-xl">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   My Document Information
                 </h2>
@@ -1622,22 +2126,11 @@ const ClientDashboardPage: React.FC = () => {
                     <div className="mt-4 flex justify-end">
                       <button
                         onClick={handleDownloadDocument}
-                        className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 shadow-sm ${isLoadingDocument ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 relative overflow-hidden`}
-                        disabled={!clientDocument || isLoadingDocument}
+                        className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 shadow-sm bg-gray-400 text-white cursor-not-allowed opacity-50`}
+                        disabled={true}
                       >
-                        {isLoadingDocument && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-blue-600 bg-opacity-90">
-                            <div className="flex items-center">
-                              <svg className="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              <span>Downloading...</span>
-                            </div>
-                          </div>
-                        )}
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         Download Document
                       </button>
@@ -1646,7 +2139,7 @@ const ClientDashboardPage: React.FC = () => {
                 ) : (
                   <div className="text-center py-8">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2v-3a2 2 0 114 0v-3a2 2 0 002-2V7a2 2 0 00-2-2H5z" />
                     </svg>
                     <p className="text-gray-500 mb-2">No document information found</p>
                     <p className="text-sm text-gray-400">Your document information will appear here once uploaded by an administrator.</p>
@@ -1657,24 +2150,29 @@ const ClientDashboardPage: React.FC = () => {
             
             {/* Payment Actions Section */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg">
-              <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center md:text-xl">
+              <div className="border-b border-gray-100 px-5 py-3 bg-gray-50 md:px-6 md:py-4 flex items-center justify-between">
+                <div className="flex items-center">
                   <CreditCardIcon className="h-5 w-5 mr-2 text-blue-500" />
-                  Payment Actions
-                </h2>
+                  <h2 className="text-lg font-bold text-gray-900">Payment Actions</h2>
+                </div>
+                <button
+                  onClick={() => setIsViewPaymentModalOpen(true)}
+                  className="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                >
+                  <EyeIcon className="h-5 w-5 mr-2" />
+                  View History
+                </button>
               </div>
               <div className="p-4 md:p-6">
                 <p className="text-gray-600 mb-4">Upload your payment receipt for verification and processing.</p>
                 <div className="flex flex-col items-start">
                   <button
                     onClick={() => setIsPaymentModalOpen(true)}
-                    className="inline-flex items-center px-4 py-2 bg-gray-400 text-white rounded-md text-sm font-medium cursor-not-allowed opacity-50 transition-colors shadow-sm"
-                    disabled
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
                   >
                     <DocumentArrowUpIcon className="h-5 w-5 mr-2" />
                     Upload Receipt
                   </button>
-                  <span className="text-xs text-blue-600 font-medium mt-1">Coming Soon!</span>
                 </div>
               </div>
             </div>
@@ -1720,15 +2218,16 @@ const ClientDashboardPage: React.FC = () => {
                             </div>
                             <div className="ml-4 flex-shrink-0">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                ${ticket.Status === 'new' ? 'bg-blue-100 text-blue-800' : 
-                                  ticket.Status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' : 
-                                  ticket.Status === 'resolved' ? 'bg-green-100 text-green-800' : 
-                                  'bg-gray-100 text-gray-800'}`}
+                                ${ticket.Status === "new" ? "bg-blue-100 text-blue-800" : 
+                                  ticket.Status === "in_progress" ? "bg-yellow-100 text-yellow-800" : 
+                                  ticket.Status === "resolved" ? "bg-green-100 text-green-800" : 
+                                  ticket.Status === "closed" ? "bg-gray-100 text-gray-800" : 
+                                  "bg-gray-100 text-gray-800"}`}
                               >
-                                {ticket.Status === 'new' ? 'New' : 
-                                 ticket.Status === 'in_progress' ? 'In Progress' : 
-                                 ticket.Status === 'resolved' ? 'Resolved' : 
-                                 ticket.Status === 'closed' ? 'Closed' : 
+                                {ticket.Status === "new" ? 'New' : 
+                                 ticket.Status === "in_progress" ? 'In Progress' : 
+                                 ticket.Status === "resolved" ? 'Resolved' : 
+                                 ticket.Status === "closed" ? 'Closed' : 
                                  ticket.Status}
                               </span>
                             </div>
@@ -1739,7 +2238,7 @@ const ClientDashboardPage: React.FC = () => {
                   ) : (
                     <div className="text-center py-8 bg-gray-50 rounded-lg">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2v-3a2 2 0 114 0v-3a2 2 0 002-2V7a2 2 0 00-2-2H5z" />
                       </svg>
                       <p className="text-gray-500 mb-2">No support tickets found</p>
                       <p className="text-sm text-gray-400">Your submitted tickets will appear here.</p>
@@ -1779,7 +2278,7 @@ const ClientDashboardPage: React.FC = () => {
                 </a>
                 <a href="#" className="flex items-center p-3 text-gray-700 rounded-xl hover:bg-blue-50 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Help & Support
                 </a>
@@ -1802,37 +2301,40 @@ const ClientDashboardPage: React.FC = () => {
           </div>
         )}
         
-        {/* Ticket Submission Modal */}
-        {client && (
-          <TicketSubmissionModal
-            clientName={client.Name}
-            isOpen={isTicketModalOpen}
-            closeModal={() => setIsTicketModalOpen(false)}
-            refreshTickets={fetchClientTicketsForComponent}
-          />
-        )}
-        
-        {/* Payment Receipt Modal */}
-        {client && (
-          <PaymentReceiptModal
-            isOpen={isPaymentModalOpen}
-            closeModal={() => setIsPaymentModalOpen(false)}
-            clientName={client.Name}
-            selectedBlock={selectedBalanceData?.Block}
-            selectedLot={selectedBalanceData?.Lot}
-            balanceRecords={balanceRecords}
-          />
-        )}
-        
-        {/* Change Password Modal */}
-        {client && (
-          <ChangePasswordModal
-            isOpen={isChangePasswordModalOpen}
-            closeModal={() => setIsChangePasswordModalOpen(false)}
-            userId={userId}
-            onSuccess={() => setIsChangePasswordModalOpen(false)}
-          />
-        )}
+        {/* Modals */}
+        <PaymentReceiptModal
+          isOpen={isPaymentModalOpen}
+          closeModal={() => setIsPaymentModalOpen(false)}
+          clientName={client?.Name || ''}
+          selectedBlock={selectedBalanceData?.Block}
+          selectedLot={selectedBalanceData?.Lot}
+          balanceRecords={balanceRecords}
+        />
+
+        <ViewPaymentModal
+          isOpen={isViewPaymentModalOpen}
+          onClose={() => setIsViewPaymentModalOpen(false)}
+          payments={payments}
+          isLoading={isLoadingPayments}
+          clientName={client?.Name || ''}
+        />
+
+        <TicketSubmissionModal
+          isOpen={isTicketModalOpen}
+          closeModal={() => setIsTicketModalOpen(false)}
+          clientName={client?.Name || ''}
+          refreshTickets={fetchClientTicketsForComponent}
+        />
+
+        <ChangePasswordModal
+          isOpen={isChangePasswordModalOpen}
+          closeModal={() => setIsChangePasswordModalOpen(false)}
+          userId={userId}
+          onSuccess={() => {
+            toast.success('Password changed successfully');
+            setIsChangePasswordModalOpen(false);
+          }}
+        />
       </div>
     </PageTransition>
   );

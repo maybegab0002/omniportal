@@ -281,18 +281,33 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
                       <button
                         type="submit"
                         disabled={loading || clientHasAccount}
-                        className="flex w-full justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                          clientHasAccount 
+                            ? 'text-gray-500 bg-gray-50 cursor-not-allowed' 
+                            : 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                        }`}
                       >
                         {loading ? (
                           <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                             Creating account...
                           </>
                         ) : (
-                          'Create Account'
+                          <span className="flex items-center gap-1.5">
+                            {clientHasAccount ? (
+                              <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 2a4 4 0 100 8 4 4 0 000-8zM5.293 9.707a1 1 0 011.414 0L10 13l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm10-4a1 1 0 00-2 0v3H6a1 1 0 100 2h3v3a1 1 0 102 0v-3h3a1 1 0 100-2h-3V6z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            {clientHasAccount ? 'Account Exists' : 'Create Account'}
+                          </span>
                         )}
                       </button>
                     </div>
@@ -314,6 +329,7 @@ const ClientsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [accountStatus, setAccountStatus] = useState<'all' | 'with_account' | 'without_account'>('all');
   const [livingWaterOwners, setLivingWaterOwners] = useState<string[]>([]);
   const [havahillsBuyers, setHavahillsBuyers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -400,6 +416,17 @@ const ClientsPage: React.FC = () => {
       console.log('Filtered Clients:', filtered);
     }
 
+    // Apply account status filter
+    if (accountStatus !== 'all') {
+      filtered = filtered.filter(client => {
+        if (accountStatus === 'with_account') {
+          return !!client.auth_id;
+        } else {
+          return !client.auth_id;
+        }
+      });
+    }
+
     // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(client =>
@@ -410,7 +437,7 @@ const ClientsPage: React.FC = () => {
     setFilteredClients(filtered);
     setTotalPages(Math.ceil(filtered.length / itemsPerPage));
     setCurrentPage(1); // Reset to first page when filters change
-  }, [clients, searchQuery, selectedProject, livingWaterOwners, havahillsBuyers]);
+  }, [clients, searchQuery, selectedProject, livingWaterOwners, havahillsBuyers, accountStatus]);
 
   const fetchClients = async () => {
     try {
@@ -513,7 +540,7 @@ const ClientsPage: React.FC = () => {
             />
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
               </svg>
             </div>
             {searchQuery && (
@@ -544,7 +571,7 @@ const ClientsPage: React.FC = () => {
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                 <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.04 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
               </div>
             </div>
@@ -567,7 +594,27 @@ const ClientsPage: React.FC = () => {
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                 <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.04 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Account Status Filter Dropdown */}
+          <div className="w-full sm:w-48">
+            <div className="relative rounded-lg shadow-sm">
+              <select
+                value={accountStatus}
+                onChange={(e) => setAccountStatus(e.target.value as 'all' | 'with_account' | 'without_account')}
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 appearance-none cursor-pointer shadow-sm"
+              >
+                <option value="all">All Accounts</option>
+                <option value="with_account">With Account</option>
+                <option value="without_account">Without Account</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.04 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
               </div>
             </div>
@@ -621,14 +668,28 @@ const ClientsPage: React.FC = () => {
                                   setIsModalOpen(true);
                                 }}
                                 disabled={!!client.auth_id}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${
+                                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                                   client.auth_id 
-                                    ? 'text-gray-400 bg-gray-50 cursor-not-allowed' 
-                                    : 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 shadow-sm'
+                                    ? 'text-gray-500 bg-gray-50 cursor-not-allowed' 
+                                    : 'text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100'
                                 }`}
                                 title={client.auth_id ? 'Client already has an account' : 'Create account for this client'}
                               >
-                                {client.auth_id ? 'Account Exists' : 'Create Account'}
+                                {client.auth_id ? (
+                                  <span className="flex items-center gap-1.5">
+                                    <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M10 2a4 4 0 100 8 4 4 0 000-8zM5.293 9.707a1 1 0 011.414 0L10 13l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                    Account Exists
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1.5">
+                                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm10-4a1 1 0 00-2 0v3H6a1 1 0 100 2h3v3a1 1 0 102 0v-3h3a1 1 0 100-2h-3V6z" clipRule="evenodd" />
+                                    </svg>
+                                    Create Account
+                                  </span>
+                                )}
                               </button>
                             </td>
                           </tr>

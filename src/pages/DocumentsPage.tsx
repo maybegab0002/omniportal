@@ -1,7 +1,7 @@
 import React, { useEffect, useState, Fragment } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Dialog, Transition } from '@headlessui/react';
-import { XMarkIcon, InformationCircleIcon, TrashIcon, DocumentTextIcon, UserGroupIcon, DocumentCheckIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, InformationCircleIcon, TrashIcon, DocumentTextIcon, UserGroupIcon, DocumentCheckIcon} from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 interface Client {
@@ -275,10 +275,6 @@ const DocumentsPage: React.FC = () => {
     }
   };
 
-  const toggleSort = () => {
-    setSortByLastName(!sortByLastName);
-  };
-
   const handleUpload = (client: Client) => {
     setSelectedClient(client);
     setIsModalOpen(true);
@@ -550,7 +546,7 @@ const DocumentsPage: React.FC = () => {
         .from('Documents')
         .update(updateData)
         .eq('id', selectedDocument.id);
-      
+
       if (error) throw error;
       
       // Update the local state
@@ -614,98 +610,140 @@ const DocumentsPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      {/* Enhanced Stats Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-3">Documents</h1>
-        
-        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-          <div className="flex items-center mb-2">
-            <ChartBarIcon className="h-5 w-5 text-gray-500 mr-2" />
-            <h2 className="text-lg font-medium">Document Statistics</h2>
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-xl font-semibold text-gray-900">Documents</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            A list of all documents in the system.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          {/* Search Input */}
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full rounded-lg border-0 py-2.5 pl-11 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 shadow-sm"
+            />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-500 focus:outline-none"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                </svg>
+              </button>
+            )}
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-            {/* Clients with documents */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 flex items-center justify-between border border-blue-100">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Clients with Documents</p>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold text-blue-700">{clientsWithDocsCount}</span>
-                  <span className="text-sm text-blue-600 ml-1">/ {clients.length}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {Math.round((clientsWithDocsCount / (clients.length || 1)) * 100)}% coverage
-                </p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <DocumentCheckIcon className="h-8 w-8 text-blue-600" />
-              </div>
-            </div>
-            
-            {/* Total documents */}
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 flex items-center justify-between border border-purple-100">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Total Documents</p>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold text-purple-700">{totalDocumentsCount}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {(totalDocumentsCount / (clients.length || 1)).toFixed(1)} docs per client
-                </p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-full">
-                <DocumentTextIcon className="h-8 w-8 text-purple-600" />
+        </div>
+
+        {/* Right-aligned dropdowns */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          {/* Sort Dropdown */}
+          <div className="w-full sm:w-48">
+            <div className="relative rounded-lg shadow-sm">
+              <select
+                value={sortByLastName ? 'lastName' : 'firstName'}
+                onChange={(e) => setSortByLastName(e.target.value === 'lastName')}
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 appearance-none cursor-pointer shadow-sm"
+              >
+                <option value="firstName">Sort by First Name</option>
+                <option value="lastName">Sort by Last Name</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
               </div>
             </div>
-            
-            {/* Clients without documents */}
-            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-4 flex items-center justify-between border border-amber-100">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Clients without Documents</p>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold text-amber-700">{clients.length - clientsWithDocsCount}</span>
-                  <span className="text-sm text-amber-600 ml-1">/ {clients.length}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {Math.round(((clients.length - clientsWithDocsCount) / (clients.length || 1)) * 100)}% pending
-                </p>
-              </div>
-              <div className="bg-amber-100 p-3 rounded-full">
-                <UserGroupIcon className="h-8 w-8 text-amber-600" />
+          </div>
+
+          {/* Project Filter Dropdown */}
+          <div className="w-full sm:w-48">
+            <div className="relative rounded-lg shadow-sm">
+              <select
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all duration-200 sm:text-sm sm:leading-6 appearance-none cursor-pointer shadow-sm"
+              >
+                <option value="all">All Projects</option>
+                <option value="Living Water Subdivision">Living Water Subdivision</option>
+                <option value="Havahills Estate">Havahills Estate</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
               </div>
             </div>
           </div>
         </div>
       </div>
-      
-      <div className="flex gap-4 mb-4">
-        {/* Search Bar */}
-        <input
-          type="text"
-          placeholder="Search clients..."
-          className="flex-1 p-2 border rounded-lg"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        
-        {/* Project Filter */}
-        <select
-          value={selectedProject}
-          onChange={(e) => setSelectedProject(e.target.value)}
-          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-        >
-          <option value="all">All Projects</option>
-          <option value="Living Water Subdivision">Living Water Subdivision</option>
-          <option value="Havahills Estate">Havahills Estate</option>
-        </select>
-        
-        {/* Sort Toggle Button */}
-        <button
-          onClick={toggleSort}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          Sort by {sortByLastName ? 'First Name' : 'Last Name'}
-        </button>
+
+      {/* Enhanced Stats Header */}
+      <div className="mt-8 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Clients with documents */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 flex items-center justify-between border border-blue-100">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Clients with Documents</p>
+              <div className="flex items-baseline">
+                <span className="text-2xl font-bold text-blue-700">{clientsWithDocsCount}</span>
+                <span className="text-sm text-blue-600 ml-1">/ {clients.length}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {Math.round((clientsWithDocsCount / (clients.length || 1)) * 100)}% coverage
+              </p>
+            </div>
+            <div className="bg-blue-100 p-3 rounded-full">
+              <DocumentCheckIcon className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
+          
+          {/* Total documents */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 flex items-center justify-between border border-purple-100">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Total Documents</p>
+              <div className="flex items-baseline">
+                <span className="text-2xl font-bold text-purple-700">{totalDocumentsCount}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {(totalDocumentsCount / (clients.length || 1)).toFixed(1)} docs per client
+              </p>
+            </div>
+            <div className="bg-purple-100 p-3 rounded-full">
+              <DocumentTextIcon className="h-8 w-8 text-purple-600" />
+            </div>
+          </div>
+          
+          {/* Clients without documents */}
+          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-4 flex items-center justify-between border border-amber-100">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Clients without Documents</p>
+              <div className="flex items-baseline">
+                <span className="text-2xl font-bold text-amber-700">{clients.length - clientsWithDocsCount}</span>
+                <span className="text-sm text-amber-600 ml-1">/ {clients.length}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {Math.round(((clients.length - clientsWithDocsCount) / (clients.length || 1)) * 100)}% pending
+              </p>
+            </div>
+            <div className="bg-amber-100 p-3 rounded-full">
+              <UserGroupIcon className="h-8 w-8 text-amber-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -745,49 +783,50 @@ const DocumentsPage: React.FC = () => {
             {/* Documents List */}
             <div className="p-3">
               {client.documents && client.documents.length > 0 ? (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {client.documents.map((doc, index) => (
                     <div key={doc.id || index} className="group flex items-center text-sm">
                       <span className="flex-1 truncate text-gray-600">{doc.Name}</span>
-                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleViewDetails(doc)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
+                          className="text-gray-600 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 px-2 py-1 rounded-md transition-colors duration-200 flex items-center space-x-1"
                           title="View Details"
                         >
                           <InformationCircleIcon className="h-4 w-4" />
+                          <span>Details</span>
                         </button>
                         <button
                           onClick={() => handleViewDocument(doc)}
-                          className="p-1 text-blue-500 hover:text-blue-700"
+                          className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors duration-200 flex items-center space-x-1"
                           disabled={viewingDocId === doc.id}
                           title="Download Document"
                         >
                           {viewingDocId === doc.id ? (
                             <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                           ) : (
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4 4V4" />
                             </svg>
                           )}
+                          <span>Download</span>
                         </button>
                         <button
                           onClick={() => handleDeleteDocument(doc)}
-                          className="p-1 text-red-500 hover:text-red-700"
+                          className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-md transition-colors duration-200 flex items-center space-x-1"
                           disabled={isDeletingDocId === doc.id}
                           title="Delete Document"
                         >
                           {isDeletingDocId === doc.id ? (
                             <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                           ) : (
                             <TrashIcon className="h-4 w-4" />
                           )}
+                          <span>Delete</span>
                         </button>
                       </div>
                     </div>
@@ -804,7 +843,8 @@ const DocumentsPage: React.FC = () => {
             <div className="px-3 pb-3">
               <button
                 onClick={() => handleUpload(client)}
-                className="w-full bg-white text-blue-600 hover:bg-blue-50 text-sm font-medium py-1.5 rounded transition-colors flex items-center justify-center space-x-1 border border-blue-200"
+                className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 w-full px-3 py-1 rounded-md transition-colors duration-200 flex items-center justify-center space-x-1"
+                title="Upload Document"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -868,12 +908,12 @@ const DocumentsPage: React.FC = () => {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="block text-sm font-medium text-gray-700">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Contact No
                           </label>
-                          <div className="relative rounded-lg shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                               </svg>
                             </div>
@@ -881,60 +921,60 @@ const DocumentsPage: React.FC = () => {
                               type="text"
                               value={formData['Contact No']}
                               onChange={(e) => setFormData({ ...formData, 'Contact No': e.target.value })}
-                              className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Enter number"
+                              className="block w-full rounded-lg border-0 py-2.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                              placeholder="Enter contact number"
                             />
                           </div>
                         </div>
 
                         <div className="space-y-1">
-                          <label className="block text-sm font-medium text-gray-700">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
                             TIN ID
                           </label>
-                          <div className="relative rounded-lg shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                          <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
                               </svg>
                             </div>
                             <input
                               type="text"
                               value={formData['TIN ID']}
                               onChange={(e) => setFormData({ ...formData, 'TIN ID': e.target.value })}
-                              className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Enter TIN"
+                              className="block w-full rounded-lg border-0 py-2.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                              placeholder="Enter TIN ID"
                             />
                           </div>
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                           Email
                         </label>
-                        <div className="relative rounded-lg shadow-sm">
-                          <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                        <div className="relative">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4 4V4" />
                             </svg>
                           </div>
                           <input
                             type="email"
                             value={formData.Email}
                             onChange={(e) => setFormData({ ...formData, Email: e.target.value })}
-                            className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Enter email"
+                            className="block w-full rounded-lg border-0 py-2.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                            placeholder="Enter email address"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                           Address
                         </label>
-                        <div className="relative rounded-lg shadow-sm">
-                          <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="relative">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
@@ -943,121 +983,104 @@ const DocumentsPage: React.FC = () => {
                             type="text"
                             value={formData.Address}
                             onChange={(e) => setFormData({ ...formData, Address: e.target.value })}
-                            className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="block w-full rounded-lg border-0 py-2.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
                             placeholder="Enter address"
                           />
                         </div>
                       </div>
 
-                      <div className="space-y-1 mt-6">
-                        <label className="block text-sm font-medium text-gray-700">
+                      <div className="space-y-1">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                           Marital Status
                         </label>
-                        <div className="relative rounded-lg shadow-sm">
-                          <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
-                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        <div className="relative">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM6 14a2 2 0 00-2 2v1H2a1 1 0 00-1 1v1a1 1 0 001 1v1a2 2 0 002 2h12a2 2 0 002-2v-1a1 1 0 001-1v-1a1 1 0 00-1-1V8a1 1 0 00-1-1z" />
                             </svg>
                           </div>
                           <select
                             value={formData['Marital Status']}
                             onChange={(e) => setFormData({ ...formData, 'Marital Status': e.target.value })}
-                            className="form-input block w-full pl-10 pr-3 py-2 text-sm border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            className="block w-full rounded-lg border-0 py-2.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
                           >
                             <option value="">Select status</option>
                             <option value="Single">Single</option>
                             <option value="Married">Married</option>
-                            <option value="Widowed">Widowed</option>
                             <option value="Divorced">Divorced</option>
+                            <option value="Widowed">Widowed</option>
                           </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Document
+                        </label>
+                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors">
+                          <div className="space-y-1 text-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <div className="text-sm text-gray-600">
+                              <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                <span>Upload a file</span>
+                                <input
+                                  id="file-upload"
+                                  name="file-upload"
+                                  type="file"
+                                  className="sr-only"
+                                  onChange={handleFileChange}
+                                  accept=".pdf"
+                                />
+                              </label>
+                              <p className="pl-1 inline">or drag and drop</p>
+                            </div>
+                            <p className="text-xs text-gray-500">PDF up to 10MB</p>
+                            {formData.file && (
+                              <p className="text-sm text-blue-600 font-medium mt-2">
+                                Selected: {formData.file.name}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* File Upload Section */}
-                    <div className="mt-6">
-                      <div 
-                        className={`relative rounded-xl border-2 border-dashed transition-all duration-200 bg-gradient-to-r from-gray-50 to-white ${
-                          formData.file 
-                            ? 'border-blue-500/50 bg-blue-50/50' 
-                            : 'border-gray-300 hover:border-blue-400/50 hover:bg-blue-50/30'
-                        }`}
-                      >
-                        <input
-                          type="file"
-                          id="file-upload"
-                          accept=".pdf"
-                          onChange={handleFileChange}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor="file-upload"
-                          className="cursor-pointer block px-6 py-8"
-                        >
-                          {formData.file ? (
-                            <div className="flex items-center justify-center space-x-3">
-                              <div className="p-2 bg-blue-100 rounded-full shadow-sm">
-                                <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                              </div>
-                              <div className="text-left">
-                                <div className="text-sm font-medium text-blue-700 truncate max-w-[200px]">
-                                  {formData.file.name}
-                                </div>
-                                <div className="text-xs text-blue-500 mt-0.5">Click to change file</div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="mx-auto w-12 h-12 mb-3 bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
-                                <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                                </svg>
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                <span className="text-blue-600 font-medium">Click to upload</span>
-                                <span> or drag and drop</span>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">PDF files only</p>
-                            </div>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-8 flex justify-end gap-3">
+                    <div className="mt-6 flex items-center justify-end space-x-3">
                       <button
                         type="button"
                         onClick={() => setIsModalOpen(false)}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-all duration-200 hover:shadow-sm"
+                        className="text-gray-700 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-md transition-colors duration-200 flex items-center space-x-2"
                       >
-                        Cancel
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span>Cancel</span>
                       </button>
                       <button
                         type="submit"
-                        disabled={!formData.file || isUploading}
-                        className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-all duration-200 flex items-center bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600 ${
-                          !formData.file || isUploading
-                            ? 'opacity-50 cursor-not-allowed'
-                            : 'hover:shadow-md hover:shadow-blue-500/10'
+                        disabled={isUploading || !formData.file}
+                        className={`text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center space-x-2 ${
+                          isUploading || !formData.file
+                            ? 'bg-blue-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                       >
                         {isUploading ? (
                           <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Uploading...
+                            <span>Uploading...</span>
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4 4m0 0L8 8m4-4v12" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4 4V4" />
                             </svg>
-                            Upload Document
+                            <span>Upload Document</span>
                           </>
                         )}
                       </button>
