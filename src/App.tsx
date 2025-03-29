@@ -11,6 +11,7 @@ import TeamChatPage from './pages/TeamChatPage';
 import TicketPage from './pages/TicketPage';
 import BalancePage from './pages/BalancePage';
 import ClientDashboardPage from './pages/ClientDashboardPage';
+import ReportPage from './pages/ReportPage';
 import { PaymentProvider } from './contexts/PaymentContext';
 import { TicketProvider } from './contexts/TicketContext';
 import './styles/scrollbar.css';
@@ -34,6 +35,7 @@ function App() {
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="payment" element={<PaymentPage />} />
                 <Route path="balance" element={<BalancePage />} />
+                <Route path="report" element={<ReportPage />} />
                 <Route path="team-chat" element={<TeamChatPage />} />
                 <Route path="ticket" element={<TicketPage />} />
               </Route>

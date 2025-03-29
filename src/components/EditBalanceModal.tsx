@@ -1,6 +1,7 @@
 import React, { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { supabase } from '../lib/supabaseClient';
 
 interface EditBalanceModalProps {
   isOpen: boolean;
@@ -22,24 +23,26 @@ export interface EditBalanceData {
   "Months Paid": string;
   "MONTHS PAID": string;
   "Terms": string;
+  "Penalty"?: number | null;
 }
 
 const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, data }) => {
-  const [formData, setFormData] = React.useState<EditBalanceData | null>(null);
+  const [formData, setFormData] = React.useState<EditBalanceData | null>(data);
   const [loading, setLoading] = React.useState(false);
-  const [currentRemainingBalance, setCurrentRemainingBalance] = React.useState<number | null>(null);
-  const [totalAmount, setTotalAmount] = React.useState<number | null>(null);
-  const [displayMonthsPaid, setDisplayMonthsPaid] = React.useState<string>('');
+  const [currentRemainingBalance, setCurrentRemainingBalance] = React.useState<number | null>(data?.["Remaining Balance"] || 0);
+  const [totalAmount, setTotalAmount] = React.useState<number | null>(data?.Amount || 0);
+  const [penalty, setPenalty] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (data) {
       setFormData({
         ...data,
-        "Amount": null
+        "Amount": null,
+        "Penalty": null
       });
       setCurrentRemainingBalance(data["Remaining Balance"]);
       setTotalAmount(data.Amount);
-      setDisplayMonthsPaid(data["MONTHS PAID"] || '0');
+      setPenalty(null);
     }
   }, [data]);
 
@@ -51,61 +54,84 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
 
     try {
       setLoading(true);
-      // Calculate new months paid count
-      const currentMonthsPaid = parseInt(data?.["MONTHS PAID"] || "0");
-      const newMonthsPaidCount = currentMonthsPaid + 1;
-
       // Add the new payment to the existing Amount
       const currentAmount = data?.Amount || 0;
-      const newPaymentAmount = formData['Amount'] || 0;
+      const newPaymentAmount = formData['Amount'] ? parseFloat(formData['Amount'].toString()) : 0;
       const totalAmount = currentAmount + newPaymentAmount;
 
-      // Update the data with new values
+      // Update the Balance table with all the data
       const updatedData = {
         ...formData,
         'Remaining Balance': currentRemainingBalance,
-        'Amount': totalAmount, // Use the sum of current and new amount
-        'Months Paid': formData['Months Paid'], // The date range string
-        'MONTHS PAID': newMonthsPaidCount.toString() // The incremented count
+        'Amount': totalAmount,
+        'Months Paid': formData['Months Paid'] || data?.['Months Paid'] || '',
+        'MONTHS PAID': formData['MONTHS PAID'] || data?.['MONTHS PAID'] || ''
       };
 
+      // First update the Balance table
       await onSave(updatedData);
-      setDisplayMonthsPaid(newMonthsPaidCount.toString());
+
+      // Then save basic payment info to Payment Record table
+      const paymentRecord: any = {
+        Name: formData.Name,
+        Amount: newPaymentAmount,
+        Project: formData.Project,
+        Block: formData.Block,
+        Lot: formData.Lot
+      };
+
+      // Only add penalty if it has a value
+      if (penalty !== null && penalty > 0) {
+        paymentRecord.Penalty = penalty;
+      }
+
+      const { error: paymentError } = await supabase
+        .from('Payment Record')
+        .insert([paymentRecord]);
+
+      if (paymentError) {
+        throw paymentError;
+      }
+
       onClose();
     } catch (error) {
       console.error('Error saving balance:', error);
+      alert('Error saving payment: ' + (error as any)?.message || 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: keyof EditBalanceData, value: any) => {
+  const handleInputChange = (field: string, value: string) => {
     if (field === 'Amount') {
-      // Convert empty string to null, otherwise parse as float
-      const numValue = value === '' ? null : parseFloat(value);
-      // Calculate new remaining balance based on just the new payment
-      const newRemainingBalance = (data?.["Remaining Balance"] || 0) - (numValue || 0);
-      setCurrentRemainingBalance(newRemainingBalance);
+      if (value === '') return;
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue <= 0) return;
       
-      // Calculate total amount (current + new payment)
-      const currentAmount = data?.Amount || 0;
-      const newTotal = currentAmount + (numValue || 0);
-      setTotalAmount(newTotal);
-      
-      // Update form data with the numeric value
       setFormData(prev => prev ? {
         ...prev,
-        [field]: numValue, // Store as number, not string
-        "Remaining Balance": newRemainingBalance
+        [field]: numValue
       } : null);
-      return;
-    }
 
-    // For other fields
-    setFormData(prev => prev ? {
-      ...prev,
-      [field]: value
-    } : null);
+      // Calculate new remaining balance
+      if (formData?.TCP) {
+        const newBalance = formData.TCP - (totalAmount || 0) - numValue;
+        setCurrentRemainingBalance(newBalance);
+      }
+    } else if (field === 'Penalty') {
+      if (value === '') {
+        setPenalty(null);
+        return;
+      }
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue < 0) return;
+      setPenalty(numValue);
+    } else {
+      setFormData(prev => prev ? {
+        ...prev,
+        [field]: value
+      } : null);
+    }
   };
 
   return (
@@ -150,8 +176,7 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  {/* Client Information */}
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
@@ -209,7 +234,7 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                       </div>
                       <div>
                         <span className="text-gray-500">MONTHS PAID:</span>
-                        <span className="ml-2 font-medium text-gray-900">{displayMonthsPaid}</span>
+                        <span className="ml-2 font-medium text-gray-900">{formData['MONTHS PAID'] || ''}</span>
                       </div>
                       <div>
                         <span className="text-gray-500">Terms:</span>
@@ -218,7 +243,6 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                     </div>
                   </div>
 
-                  {/* Payment Information */}
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Payment Amount</label>
@@ -231,10 +255,35 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                           className="w-full pl-8 pr-4 py-3 bg-white border-0 rounded-lg ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 transition-shadow"
                           placeholder="0.00"
                           step="0.01"
-                          min="0"
-                          required
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Penalty (Optional)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-3 text-gray-500">₱</span>
+                        <input
+                          type="number"
+                          value={penalty ?? ''}
+                          onChange={(e) => handleInputChange('Penalty', e.target.value)}
+                          className="w-full pl-8 pr-4 py-3 bg-white border-0 rounded-lg ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 transition-shadow"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">MONTHS PAID</label>
+                      <input
+                        type="text"
+                        value={formData['MONTHS PAID'] || ''}
+                        onChange={(e) => handleInputChange('MONTHS PAID', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border-0 rounded-lg ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 transition-shadow"
+                        placeholder="e.g., 37"
+                        required
+                      />
                     </div>
 
                     <div>
