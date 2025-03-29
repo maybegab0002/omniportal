@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
 import EditBalanceModal, { EditBalanceData } from '../components/EditBalanceModal';
+import EditBalanceDetailsModal, { EditBalanceDetailsData } from '../components/EditBalanceDetailsModal';
 
 interface BalanceData {
   id: number;
@@ -37,6 +38,7 @@ const BalancePage: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isEditDetailsModalOpen, setIsEditDetailsModalOpen] = useState(false);
   const [selectedBalance, setSelectedBalance] = useState<BalanceData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string>('');
@@ -81,6 +83,11 @@ const BalancePage: FC = () => {
     setIsEditModalOpen(true);
   };
 
+  const handleEditDetails = (balance: BalanceData) => {
+    setSelectedBalance(balance);
+    setIsEditDetailsModalOpen(true);
+  };
+
   const handleSave = async (updatedData: EditBalanceData) => {
     try {
       // First, get the current record to calculate the new months paid
@@ -120,6 +127,38 @@ const BalancePage: FC = () => {
     } catch (err: any) {
       console.error('Error updating balance:', err.message);
       setError(err.message);
+    }
+  };
+
+  const handleSaveDetails = async (updatedData: EditBalanceDetailsData) => {
+    try {
+      const { error } = await supabase
+        .from('Balance')
+        .update({
+          Name: updatedData.Name,
+          Block: updatedData.Block,
+          Lot: updatedData.Lot,
+          Project: updatedData.Project,
+          Terms: updatedData.Terms,
+          TCP: updatedData.TCP,
+          Amount: updatedData.Amount,
+          "Remaining Balance": updatedData["Remaining Balance"]
+        })
+        .eq('id', updatedData.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setBalances(prevBalances =>
+        prevBalances.map(balance =>
+          balance.id === updatedData.id ? { ...balance, ...updatedData } : balance
+        )
+      );
+
+      setIsEditDetailsModalOpen(false);
+      setSelectedBalance(null);
+    } catch (error: any) {
+      console.error('Error updating balance:', error.message);
     }
   };
 
@@ -421,6 +460,23 @@ const BalancePage: FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium space-x-2">
                         <button
+                          onClick={() => handleEditDetails(balance)}
+                          className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200 group"
+                          title="Edit Balance"
+                        >
+                          <span className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" 
+                                className="h-4 w-4" 
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span className="ml-1">Edit</span>
+                          </span>
+                        </button>
+                        <button
                           onClick={() => handleEdit(balance)}
                           className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200 group"
                           title="Add Payment"
@@ -477,6 +533,19 @@ const BalancePage: FC = () => {
           />
         )}
 
+        {/* Edit Balance Details Modal */}
+        {isEditDetailsModalOpen && selectedBalance && (
+          <EditBalanceDetailsModal
+            isOpen={isEditDetailsModalOpen}
+            onClose={() => {
+              setIsEditDetailsModalOpen(false);
+              setSelectedBalance(null);
+            }}
+            onSave={handleSaveDetails}
+            data={selectedBalance}
+          />
+        )}
+
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && selectedBalance && (
           <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-50 flex items-center justify-center">
@@ -484,7 +553,7 @@ const BalancePage: FC = () => {
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                   <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
