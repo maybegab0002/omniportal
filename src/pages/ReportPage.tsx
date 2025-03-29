@@ -14,6 +14,7 @@ interface PaymentRecord {
   Block: string;
   Lot: string;
   Penalty: number;
+  "Payment Type": string;
 }
 
 const ReportPage: React.FC = () => {
@@ -23,6 +24,17 @@ const ReportPage: React.FC = () => {
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [filteredRecords, setFilteredRecords] = useState<PaymentRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPaymentType, setSelectedPaymentType] = useState<string>('all');
+
+  const paymentTypes = [
+    'all',
+    'cash',
+    'SB-HRM',
+    'SB-LWS',
+    'SB-HHE',
+    'CBS-LWS',
+    'CBS-HHE'
+  ];
 
   useEffect(() => {
     fetchPaymentRecords();
@@ -30,7 +42,7 @@ const ReportPage: React.FC = () => {
 
   useEffect(() => {
     filterRecords();
-  }, [startDate, endDate, paymentRecords, searchTerm]);
+  }, [startDate, endDate, paymentRecords, searchTerm, selectedPaymentType]);
 
   const filterRecords = () => {
     let filtered = [...paymentRecords];
@@ -43,13 +55,17 @@ const ReportPage: React.FC = () => {
     }
 
     if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(record => 
-        record.Name.toLowerCase().includes(search) ||
-        record.Project.toLowerCase().includes(search) ||
-        record.Block.toLowerCase().includes(search) ||
-        record.Lot.toLowerCase().includes(search)
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(record =>
+        record.Name.toLowerCase().includes(searchLower) ||
+        record.Project.toLowerCase().includes(searchLower) ||
+        record.Block.toLowerCase().includes(searchLower) ||
+        record.Lot.toLowerCase().includes(searchLower)
       );
+    }
+
+    if (selectedPaymentType !== 'all') {
+      filtered = filtered.filter(record => record["Payment Type"] === selectedPaymentType);
     }
 
     setFilteredRecords(filtered);
@@ -119,6 +135,17 @@ const ReportPage: React.FC = () => {
               className="w-48 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
               placeholderText="End Date"
             />
+            <select
+              value={selectedPaymentType}
+              onChange={(e) => setSelectedPaymentType(e.target.value)}
+              className="w-48 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+            >
+              {paymentTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type === 'all' ? 'All Payment Types' : type.toUpperCase()}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -214,18 +241,21 @@ const ReportPage: React.FC = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Penalty
                   </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment Type
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
                       Loading payment records...
                     </td>
                   </tr>
                 ) : filteredRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center">
+                    <td colSpan={8} className="px-6 py-10 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -272,6 +302,9 @@ const ReportPage: React.FC = () => {
                           style: 'currency',
                           currency: 'PHP'
                         }).format(record.Penalty) : '₱0.00'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {record["Payment Type"] || 'cash'}
                       </td>
                     </tr>
                   ))
