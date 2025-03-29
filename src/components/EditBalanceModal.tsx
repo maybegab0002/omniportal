@@ -24,6 +24,7 @@ export interface EditBalanceData {
   "MONTHS PAID": string;
   "Terms": string;
   "Penalty"?: number | null;
+  "Payment Type"?: string;
 }
 
 const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, data }) => {
@@ -32,17 +33,29 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
   const [currentRemainingBalance, setCurrentRemainingBalance] = React.useState<number | null>(data?.["Remaining Balance"] || 0);
   const [totalAmount, setTotalAmount] = React.useState<number | null>(data?.Amount || 0);
   const [penalty, setPenalty] = React.useState<number | null>(null);
+  const [paymentType, setPaymentType] = React.useState<string>('cash');
+
+  const paymentTypes = [
+    'cash',
+    'SB-HRM',
+    'SB-LWS',
+    'SB-HHE',
+    'CBS-LWS',
+    'CBS-HHE'
+  ];
 
   React.useEffect(() => {
     if (data) {
       setFormData({
         ...data,
         "Amount": null,
-        "Penalty": null
+        "Penalty": null,
+        "Payment Type": 'cash'
       });
       setCurrentRemainingBalance(data["Remaining Balance"]);
       setTotalAmount(data.Amount);
       setPenalty(null);
+      setPaymentType('cash');
     }
   }, [data]);
 
@@ -77,7 +90,8 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
         Amount: newPaymentAmount,
         Project: formData.Project,
         Block: formData.Block,
-        Lot: formData.Lot
+        Lot: formData.Lot,
+        "Payment Type": paymentType
       };
 
       // Only add penalty if it has a value
@@ -257,6 +271,21 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                           step="0.01"
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type</label>
+                      <select
+                        value={paymentType}
+                        onChange={(e) => setPaymentType(e.target.value)}
+                        className="w-full px-4 py-3 bg-white border-0 rounded-lg ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 transition-shadow"
+                      >
+                        {paymentTypes.map((type) => (
+                          <option key={type} value={type}>
+                            {type.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
