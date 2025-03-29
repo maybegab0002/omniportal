@@ -866,6 +866,44 @@ const InventoryPage: React.FC = () => {
     try {
       const tableName = selectedProject.id === 'LivingWater' ? 'Living Water Subdivision' : 'Havahills Estate';
       
+      // Get the client name based on property type
+      const clientName = isLivingWaterProperty(propertyToReopen) ? propertyToReopen.Owner : propertyToReopen["Buyers Name"];
+
+      if (!clientName) {
+        console.error('No client name found for property');
+        return;
+      }
+
+      // Delete from Clients table
+      const { error: clientError } = await supabase
+        .from('Clients')
+        .delete()
+        .eq('Name', clientName);
+
+      if (clientError) {
+        console.error('Error deleting client:', clientError);
+      }
+
+      // Delete from Documents table
+      const { error: documentsError } = await supabase
+        .from('Documents')
+        .delete()
+        .eq('Name', clientName);
+
+      if (documentsError) {
+        console.error('Error deleting documents:', documentsError);
+      }
+
+      // Delete from Balance table
+      const { error: balanceError } = await supabase
+        .from('Balance')
+        .delete()
+        .eq('Name', clientName);
+
+      if (balanceError) {
+        console.error('Error deleting balance:', balanceError);
+      }
+      
       // Create an update object with cleared fields and Available status
       const updateData: any = {
         Status: 'Available'
@@ -893,12 +931,12 @@ const InventoryPage: React.FC = () => {
       }
       
       // Update the property in the database
-      const { error } = await supabase
+      const { error: propertyError } = await supabase
         .from(tableName)
         .update(updateData)
         .eq('id', propertyToReopen.id);
       
-      if (error) throw error;
+      if (propertyError) throw propertyError;
       
       // Update local state
       setProperties(prevProperties => 
