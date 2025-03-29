@@ -1,51 +1,40 @@
 /* Custom Scrollbar Styles */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #ffffff;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #000000;
-  border-radius: 10px;
-  border: 2px solid #ffffff;
-  transition: all 0.3s ease;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #1f2937;
-  border: 1.5px solid #ffffff;
+  background: #94a3b8;
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #000000 #ffffff;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 /* For dark mode */
 @media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-track {
-    background: #000000;
-    border: 1px solid #1f2937;
-  }
-
   ::-webkit-scrollbar-thumb {
-    background: #ffffff;
-    border: 2px solid #000000;
+    background: #475569;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #ffffff;
+    background: #64748b;
   }
 
   * {
-    scrollbar-color: #ffffff #000000;
+    scrollbar-color: #475569 transparent;
   }
 }
 
@@ -62,14 +51,12 @@
 }
 
 .clean-scrollbar::-webkit-scrollbar-thumb {
-  background: #000000;
-  border: none;
-  border-radius: 6px;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 .clean-scrollbar::-webkit-scrollbar-track {
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
+  background: transparent;
 }
 
 /* For modal content */
@@ -83,15 +70,12 @@
 }
 
 .modal-scrollbar::-webkit-scrollbar-thumb {
-  background: #000000;
-  border-radius: 6px;
-  border: none;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 .modal-scrollbar::-webkit-scrollbar-track {
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
-  border-radius: 6px;
+  background: transparent;
 }
 
 /* For tables */
@@ -105,14 +89,12 @@
 }
 
 .table-scrollbar::-webkit-scrollbar-thumb {
-  background: #000000;
-  border: none;
-  border-radius: 6px;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 .table-scrollbar::-webkit-scrollbar-track {
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
+  background: transparent;
 }
 
 /* For sidebar */
@@ -122,18 +104,16 @@
 }
 
 .sidebar-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb {
-  background: #000000;
-  border: none;
-  border-radius: 4px;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-track {
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
+  background: transparent;
 }
 
 /* For dropdowns */
@@ -143,28 +123,26 @@
 }
 
 .dropdown-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .dropdown-scrollbar::-webkit-scrollbar-thumb {
-  background: #000000;
-  border: none;
-  border-radius: 4px;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 .dropdown-scrollbar::-webkit-scrollbar-track {
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
+  background: transparent;
 }
 
 /* Hover effect for all scrollbars */
 *::-webkit-scrollbar-thumb:hover {
-  background: #1f2937;
+  background: #94a3b8;
 }
 
 /* Animated scrollbar on hover */
 .animated-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(45deg, #000000, #000000);
+  background: linear-gradient(45deg, #cbd5e1, #cbd5e1);
   background-size: 200% 200%;
   animation: gradient 3s ease infinite;
 }
@@ -178,5 +156,52 @@
   }
   100% {
     background-position: 0% 50%;
+  }
+}
+
+/* For dark mode */
+@media (prefers-color-scheme: dark) {
+  .clean-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  .clean-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .modal-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .table-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  .table-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .dropdown-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  .dropdown-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .animated-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, #475569, #475569);
   }
 }

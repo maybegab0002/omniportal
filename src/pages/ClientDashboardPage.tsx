@@ -2,7 +2,7 @@ import React, { useEffect, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
-import { UserCircleIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon, KeyIcon, ArrowUpTrayIcon, CheckIcon, XCircleIcon, ChevronDownIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, ArrowRightOnRectangleIcon, CreditCardIcon, TicketIcon, XMarkIcon, DocumentArrowUpIcon, KeyIcon, ArrowUpTrayIcon, CheckIcon, XCircleIcon, ChevronDownIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, ClockIcon, BanknotesIcon, CurrencyDollarIcon  } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -27,6 +27,8 @@ interface Balance {
   Amount: number | null;
   'Months Paid': string | null;
   'Remaining Balance': number | null;
+  Project: string;
+  Terms: string;
 }
 
 // Ticket Submission Modal Props
@@ -768,7 +770,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                                       {isDragging ? 'Drop your file here' : 'Drop your file here, or'}
                                     </p>
                                     <label className="relative cursor-pointer">
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
+                                      <span className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
                                         <ArrowUpTrayIcon className="h-4 w-4 mr-1.5" />
                                         Browse Files
                                         <input
@@ -1178,7 +1180,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
                 leaveTo="opacity-0 scale-95"
               >
                 <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4 flex justify-between items-center">
                     Payment History
                   </Dialog.Title>
                   
@@ -1419,14 +1421,16 @@ const ClientDashboardPage: React.FC = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('Checking authentication...');
         const { data } = await supabase.auth.getSession();
         
         if (!data.session) {
+          console.log('No session found, redirecting to login...');
           navigate('/login');
           return;
         }
         
-        // Set the user ID
+        console.log('Session found, user ID:', data.session.user.id);
         setUserId(data.session.user.id);
         
         // Get client info using auth_id
@@ -1436,47 +1440,22 @@ const ClientDashboardPage: React.FC = () => {
           .eq('auth_id', data.session.user.id)
           .single();
         
-        if (clientError || !clientData) {
+        if (clientError) {
           console.error('Client not found error:', clientError);
-          throw new Error('Client not found');
+          setError(clientError.message);
+          setLoading(false);
+          return;
+        }
+        
+        if (!clientData) {
+          console.error('No client data found');
+          setError('Client information not found');
+          setLoading(false);
+          return;
         }
         
         console.log('Client data retrieved:', clientData);
-        console.log('Client data keys:', Object.keys(clientData));
         setClient(clientData);
-        
-        // Check if this is the client's first login
-        let firstLoginValue = null;
-        
-        // Check for both field names and handle different data types
-        if ('first_login' in clientData) {
-          firstLoginValue = clientData.first_login;
-          console.log('Found first_login field:', firstLoginValue);
-        } 
-        // Check for first-login (hyphen version)
-        else if ('first-login' in clientData) {
-          firstLoginValue = clientData['first-login'];
-          console.log('Found first-login field:', firstLoginValue);
-        }
-        
-        // Determine if this is the first login
-        // If the field doesn't exist or is null/undefined, assume it's the first login
-        // If it's a boolean false, it's not the first login
-        // If it's a string "false", it's not the first login
-        const isFirstTimeLogin = 
-          firstLoginValue === null || 
-          firstLoginValue === undefined || 
-          (firstLoginValue !== false && firstLoginValue !== "false");
-        
-        console.log('Is first time login?', isFirstTimeLogin);
-        
-        // If it's the first login, show the change password modal
-        if (isFirstTimeLogin) {
-          setIsChangePasswordModalOpen(true);
-        }
-        
-        // Get client balance data
-        console.log('Fetching balance data for client:', clientData.Name);
         
         try {
           // Get all records from the Balance table
@@ -1484,79 +1463,55 @@ const ClientDashboardPage: React.FC = () => {
             .from('Balance')
             .select('*');
             
-          console.log('All balance records:', allBalanceRecords);
-          
           if (balanceError) {
             console.error('Error fetching balance data:', balanceError);
-          } else if (allBalanceRecords && allBalanceRecords.length > 0) {
-            console.log('Raw balance records:', allBalanceRecords);
-            
-            // Find all records that match the client's name
-            // First try exact match (case insensitive)
-            let matchedRecords = allBalanceRecords.filter(record => 
-              record.Name && record.Name.toLowerCase() === clientData.Name.toLowerCase()
-            );
-            
-            console.log('Exact matches found:', matchedRecords);
-            console.log('Client name to match:', clientData.Name);
-            
-            // If no exact matches, try partial matches
-            if (matchedRecords.length === 0) {
-              console.log('No exact matches found, trying partial matches');
-              matchedRecords = allBalanceRecords.filter(record => 
-                record.Name && 
-                (record.Name.toLowerCase().includes(clientData.Name.toLowerCase()) || 
-                 clientData.Name.toLowerCase().includes(record.Name.toLowerCase()))
-              );
-              
-              console.log('Partial matches found:', matchedRecords);
-            }
-            
-            if (matchedRecords.length > 0) {
-              // Log each record before processing
-              matchedRecords.forEach((record, index) => {
-                console.log(`Record ${index} before processing:`, record);
-                console.log(`Record ${index} TCP type:`, typeof record.TCP, 'Value:', record.TCP);
-                console.log(`Record ${index} Amount type:`, typeof record.Amount, 'Value:', record.Amount);
-                console.log(`Record ${index} Remaining Balance type:`, typeof record['Remaining Balance'], 'Value:', record['Remaining Balance']);
-              });
-              
-              // Ensure all numeric fields are properly converted
-              const processedRecords = matchedRecords.map(record => {
-                const processed = {
-                  ...record,
-                  Block: String(record.Block),
-                  Lot: String(record.Lot),
-                  TCP: safelyParseNumber(record.TCP),
-                  Amount: safelyParseNumber(record.Amount),
-                  'Remaining Balance': safelyParseNumber(record['Remaining Balance'])
-                };
-                console.log('Record after processing:', processed);
-                return processed;
-              });
-              
-              console.log('Processed records:', processedRecords);
-              setBalanceRecords(processedRecords);
-              
-              // Set the first record as the default selected
-              const firstLot = `Block ${processedRecords[0].Block} Lot ${processedRecords[0].Lot}`;
-              console.log('Setting default selected lot to:', firstLot);
-              setSelectedLot(firstLot);
-              setSelectedBalanceData(processedRecords[0]);
-              
-              console.log('Successfully set balance data:', processedRecords);
-            } else {
-              console.log('No matching balance records found for client:', clientData.Name);
-            }
-          } else {
-            console.log('No records found in Balance table');
+            setError(balanceError.message);
+            setLoading(false);
+            return;
           }
-        } catch (err) {
+          
+          if (!allBalanceRecords || allBalanceRecords.length === 0) {
+            console.log('No balance records found');
+            setBalanceRecords([]);
+            setLoading(false);
+            return;
+          }
+          
+          console.log('All balance records:', allBalanceRecords);
+          
+          // Find all records that match the client's name
+          const matchedRecords = allBalanceRecords.filter(record => 
+            record.Name && record.Name.toLowerCase() === clientData.Name.toLowerCase()
+          );
+          
+          console.log('Matched balance records:', matchedRecords);
+          
+          if (matchedRecords.length > 0) {
+            const processedRecords = matchedRecords.map(record => ({
+              ...record,
+              Block: String(record.Block),
+              Lot: String(record.Lot),
+              TCP: safelyParseNumber(record.TCP),
+              Amount: safelyParseNumber(record.Amount),
+              'Remaining Balance': safelyParseNumber(record['Remaining Balance'])
+            }));
+            
+            console.log('Processed records:', processedRecords);
+            setBalanceRecords(processedRecords);
+            
+            // Set the first record as the default selected
+            const firstRecord = processedRecords[0];
+            setSelectedLot(`Block ${firstRecord.Block} Lot ${firstRecord.Lot}`);
+            setSelectedBalanceData(firstRecord);
+          }
+          
+        } catch (err: any) {
           console.error('Error in balance data fetch:', err);
+          setError(err.message);
         }
-
+        
       } catch (err: any) {
-        console.error('Error loading client dashboard:', err);
+        console.error('Error in auth check:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -1870,7 +1825,7 @@ const ClientDashboardPage: React.FC = () => {
       <PageTransition>
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full">
-            <div className="bg-red-100 rounded-full p-3 w-12 h-12 flex items-center justify-center text-red-600 mx-auto mb-4">
+            <div className="bg-red-100 rounded-full p-3 w-12 h-12 flex items-center justify-center ring-2 ring-white/20">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
               </svg>
@@ -1946,119 +1901,158 @@ const ClientDashboardPage: React.FC = () => {
         {/* Main content */}
         <main className="max-w-7xl mx-auto px-4 py-6">
           <div className="pb-8">
-            {/* Hero section with gradient background */}
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg mb-6 overflow-hidden">
-              <div className="px-5 py-8 text-white md:px-8 md:py-10">
-                <h1 className="text-2xl font-bold mb-2 md:text-3xl">Welcome, {client?.Name}</h1>
-                <p className="text-blue-100 mb-5 text-sm md:text-base">Here's your current payment information</p>
-                
-                {/* Lot selector dropdown - only show if there are multiple lots */}
-                {balanceRecords.length > 1 && (
-                  <div className="mb-6">
-                    <label htmlFor="lot-selector" className="block mb-2 text-lg font-medium text-white items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"></path>
-                      </svg>
-                      Select Block and Lot
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="lot-selector"
-                        value={selectedLot || ''}
-                        onChange={handleLotChange}
-                        className="w-full md:w-auto appearance-none px-4 py-3 bg-gradient-to-r from-blue-800 to-blue-700 text-white text-lg font-medium rounded-lg border-2 border-white/30 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50 pr-10 transition-all duration-300"
-                        style={{ color: 'white', backgroundColor: '#1e40af' }}
-                      >
-                        {balanceRecords.map((record, index) => (
-                          <option key={index} value={`Block ${record.Block} Lot ${record.Lot}`}>
-                            Block {record.Block} Lot {record.Lot}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
-                        <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                        </svg>
+            {/* Hero section with modern design */}
+            <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+              {/* Background Pattern */}
+              <div className="absolute inset-0">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 to-indigo-700/90" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,transparent_45%,#1e40af_100%)]" />
+                <div className="absolute inset-y-0 right-0 w-1/2 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%2210%22%20r%3D%221%22%20fill%3D%22%23ffffff20%22%2F%3E%3C%2Fsvg%3E')] opacity-20" />
+              </div>
+
+              {/* Content */}
+              <div className="relative px-6 py-8 md:px-8 md:py-12">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                  {/* Welcome Section */}
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/20">
+                          <span className="text-2xl font-bold text-white">{client?.Name?.charAt(0)}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <h1 className="text-3xl font-bold text-white mb-1">Welcome, {client?.Name}</h1>
+                        <p className="text-blue-100 text-sm">Here's your current payment information</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Property Selector */}
+                  {balanceRecords.length > 1 && (
+                    <div className="w-full md:w-auto">
+                      <label htmlFor="lot-selector" className="block mb-2 text-sm font-medium text-blue-100">
+                        Select Property
+                      </label>
+                      <div className="relative">
+                        <select
+                          id="lot-selector"
+                          value={selectedLot || ''}
+                          onChange={handleLotChange}
+                          className="w-full md:w-72 px-4 py-3 bg-white/10 backdrop-blur text-white text-sm font-medium rounded-lg border border-white/20 shadow-sm 
+                            focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent
+                            appearance-none transition-all duration-200 hover:bg-white/15"
+                        >
+                          {balanceRecords.map((record) => (
+                            <option key={record.id} value={`Block ${record.Block} Lot ${record.Lot}`} 
+                              className="bg-blue-800 text-white">
+                              {record.Project} - Block {record.Block} Lot {record.Lot}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white/70">
+                          <ChevronDownIcon className="h-5 w-5" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+                  {/* Monthly Amount Card */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5 border border-white/10 hover:bg-white/15 transition-all duration-200">
+                    <div className="flex items-start space-x-4">
+                      <div className="p-2.5 bg-white/10 rounded-lg">
+                        <CurrencyDollarIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-blue-100 mb-1">Monthly Amount</p>
+                        <p className="text-xl font-bold text-white truncate">₱{selectedBalanceData?.Amount?.toLocaleString() || '0'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Remaining Balance Card */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5 border border-white/10 hover:bg-white/15 transition-all duration-200">
+                    <div className="flex items-start space-x-4">
+                      <div className="p-2.5 bg-white/10 rounded-lg">
+                        <BanknotesIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-blue-100 mb-1">Remaining Balance</p>
+                        <p className="text-xl font-bold text-white truncate">₱{selectedBalanceData?.["Remaining Balance"]?.toLocaleString() || '0'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Months Paid Card */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5 border border-white/10 hover:bg-white/15 transition-all duration-200">
+                    <div className="flex items-start space-x-4">
+                      <div className="p-2.5 bg-white/10 rounded-lg">
+                        <CalendarIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-blue-100 mb-1">Months Paid</p>
+                        <p className="text-xl font-bold text-white truncate">{selectedBalanceData?.["Months Paid"] || '0'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Terms Card */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5 border border-white/10 hover:bg-white/15 transition-all duration-200">
+                    <div className="flex items-start space-x-4">
+                      <div className="p-2.5 bg-white/10 rounded-lg">
+                        <ClockIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-blue-100 mb-1">Terms</p>
+                        <p className="text-xl font-bold text-white truncate">{selectedBalanceData?.Terms || '0'} months</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Property Details */}
+                {selectedBalanceData && (
+                  <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                    <h3 className="text-lg font-semibold text-white mb-4">Property Details</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                      <div>
+                        <p className="text-sm text-blue-100">Project</p>
+                        <p className="text-base font-medium text-white mt-1">{selectedBalanceData.Project}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-100">Block</p>
+                        <p className="text-base font-medium text-white mt-1">{selectedBalanceData.Block}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-100">Lot</p>
+                        <p className="text-base font-medium text-white mt-1">{selectedBalanceData.Lot}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-100">Monthly Amount</p>
+                        <p className="text-base font-medium text-white mt-1">₱{selectedBalanceData?.Amount?.toLocaleString() || '0'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-100">Remaining Balance</p>
+                        <p className="text-base font-medium text-white mt-1">₱{selectedBalanceData?.["Remaining Balance"]?.toLocaleString() || '0'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-100">Total Contract Price</p>
+                        <p className="text-base font-medium text-white mt-1">₱{selectedBalanceData?.TCP?.toLocaleString() || '0'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-100">Months Paid</p>
+                        <p className="text-base font-medium text-white mt-1">{selectedBalanceData?.["Months Paid"] || '0'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-100">Terms</p>
+                        <p className="text-base font-medium text-white mt-1">{selectedBalanceData?.Terms || '0'} months</p>
                       </div>
                     </div>
                   </div>
                 )}
-                
-                {/* Payment details cards - now with a modern design */}
-                {selectedBalanceData === null ? (
-                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 text-center">
-                    <CreditCardIcon className="h-10 w-10 mx-auto text-white/70 mb-3" />
-                    <p className="text-white mb-4 text-sm">No payment details found.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {/* Property Details Card */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl sm:col-span-2 lg:col-span-3">
-                      <div className="flex items-center mb-3">
-                        <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M21 12a9 9 0 0118 0 9 9 0 012-18 9 9 0 01-18 0z" />
-                          </svg>
-                        </div>
-                        <p className="text-base text-white font-medium md:text-lg">Property Details</p>
-                      </div>
-                      <div className="flex flex-wrap justify-between">
-                        <div className="mb-2 mr-4">
-                          <p className="text-sm text-white/70">Block</p>
-                          <p className="text-xl font-bold text-white">{selectedBalanceData.Block}</p>
-                        </div>
-                        <div className="mb-2 mr-4">
-                          <p className="text-sm text-white/70">Lot</p>
-                          <p className="text-xl font-bold text-white">{selectedBalanceData.Lot}</p>
-                        </div>
-                        <div className="mb-2">
-                          <p className="text-sm text-white/70">TCP</p>
-                          <p className="text-xl font-bold text-white italic">Coming Soon</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Current Balance Card */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                      <div className="flex items-center mb-3">
-                        <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
-                          </svg>
-                        </div>
-                        <p className="text-base text-white font-medium md:text-lg">Remaining Balance</p>
-                      </div>
-                      <p className="text-2xl font-bold text-white italic">Coming Soon</p>
-                    </div>
-                    
-                    {/* Amount Paid Card */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                      <div className="flex items-center mb-3">
-                        <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-16.5 0h.008v.008H6V10.5z" />
-                          </svg>
-                        </div>
-                        <p className="text-base text-white font-medium md:text-lg">Amount Paid</p>
-                      </div>
-                      <p className="text-2xl font-bold text-white italic">Coming Soon</p>
-                    </div>
-                    
-                    {/* Months Paid Card */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-lg p-5 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                      <div className="flex items-center mb-3">
-                        <div className="bg-white/30 rounded-full p-2 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                          </svg>
-                        </div>
-                        <p className="text-base text-white font-medium md:text-lg">Months Paid</p>
-                      </div>
-                      <p className="text-lg font-bold text-white italic">Coming Soon</p>
-                    </div>
-                  </div>
-                )}
-                
               </div>
             </div>
             
@@ -2265,8 +2259,19 @@ const ClientDashboardPage: React.FC = () => {
                   onClick={() => setMenuOpen(false)}
                   className="p-2 rounded-full hover:bg-gray-100"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    strokeWidth={1.5} 
+                    stroke="currentColor" 
+                    className="w-6 h-6"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      d={menuOpen ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"}
+                    />
                   </svg>
                 </button>
               </div>
@@ -2278,7 +2283,7 @@ const ClientDashboardPage: React.FC = () => {
                 </a>
                 <a href="#" className="flex items-center p-3 text-gray-700 rounded-xl hover:bg-blue-50 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 0118 0 9 9 0 012-18 9 9 0 01-18 0z" />
                   </svg>
                   Help & Support
                 </a>

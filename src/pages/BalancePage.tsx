@@ -6,19 +6,31 @@ import EditBalanceModal, { EditBalanceData } from '../components/EditBalanceModa
 
 interface BalanceData {
   id: number;
-  "Name": string;
-  "Remaining Balance": number | null;
-  "Amount": number | null;
-  "Months Paid": string;
-  "TCP": number | null;
   "Project": string;
   "Block": string;
   "Lot": string;
+  "Name": string;
+  "Remaining Balance": number | null;
+  "Amount": number | null;
+  "TCP": number | null;
+  "Months Paid": string;
+  "MONTHS PAID": string;
+  "Terms": string;
 }
 
 type SortType = 'name-asc' | 'name-desc' | 'block-lot-asc' | 'block-lot-desc';
 
 const PROJECTS = ['Living Water Subdivision', 'Havahills Estate'];
+
+const formatCurrency = (value: number | null): string => {
+  if (value == null) return '₱0.00';
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+};
 
 const BalancePage: FC = () => {
   const [balances, setBalances] = useState<BalanceData[]>([]);
@@ -40,14 +52,19 @@ const BalancePage: FC = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('Balance')
-        .select('id, "Name", "Remaining Balance", "Amount", "Months Paid", "TCP", "Project", "Block", "Lot"')
+        .select('id, "Project", "Block", "Lot", "Name", "Remaining Balance", "Amount", "TCP", "Months Paid", "MONTHS PAID", "Terms"')
         .order('"Name"', { ascending: true });
 
       if (error) throw error;
 
       const processedData = (data || []).map(item => ({
         ...item,
-        "Months Paid": item["Months Paid"]?.toString() || ''
+        "Remaining Balance": item["Remaining Balance"] ? parseFloat(item["Remaining Balance"].toString().replace(/,/g, '')) : null,
+        "Amount": item["Amount"] ? parseFloat(item["Amount"].toString().replace(/,/g, '')) : null,
+        "TCP": item["TCP"] ? parseFloat(item["TCP"].toString().replace(/,/g, '')) : null,
+        "Months Paid": item["Months Paid"]?.toString() || '',
+        "MONTHS PAID": item["MONTHS PAID"]?.toString() || '',
+        "Terms": item["Terms"]?.toString() || ''
       }));
 
       setBalances(processedData);
@@ -66,25 +83,43 @@ const BalancePage: FC = () => {
 
   const handleSave = async (updatedData: EditBalanceData) => {
     try {
+      // First, get the current record to calculate the new months paid
+      const { data: currentData, error: fetchError } = await supabase
+        .from('Balance')
+        .select('*')
+        .eq('id', updatedData.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Calculate the new months paid count
+      const currentMonthsPaid = parseInt(currentData['MONTHS PAID'] || '0');
+      const newMonthsPaidCount = currentMonthsPaid + 1;
+
+      // Update the record
       const { error } = await supabase
         .from('Balance')
         .update({
+          "Project": updatedData["Project"],
+          "Block": updatedData["Block"],
+          "Lot": updatedData["Lot"],
           "Name": updatedData["Name"],
           "Remaining Balance": updatedData["Remaining Balance"],
           "Amount": updatedData["Amount"],
-          "Months Paid": updatedData["Months Paid"],
           "TCP": updatedData["TCP"],
-          "Project": updatedData["Project"],
-          "Block": updatedData["Block"],
-          "Lot": updatedData["Lot"]
+          "Months Paid": updatedData["Months Paid"], // This is the string range (e.g., "March 22 - February 25")
+          "MONTHS PAID": newMonthsPaidCount.toString(), // This is the numeric count
+          "Terms": updatedData["Terms"]
         })
         .eq('id', updatedData.id);
 
       if (error) throw error;
 
+      // Refresh the balances list
       await fetchBalances();
     } catch (err: any) {
       console.error('Error updating balance:', err.message);
+      setError(err.message);
     }
   };
 
@@ -131,30 +166,42 @@ const BalancePage: FC = () => {
     return lotNumA - lotNumB;
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null) return '₱0.00';
-    return `₱${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
   // Filter and sort balances
   const filteredBalances = useMemo(() => {
-    let filtered = [...balances];
+    try {
+      let filtered = [...balances];
 
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(balance => 
-        balance.Name.toLowerCase().includes(searchLower) ||
-        `${balance.Block}/${balance.Lot}`.toLowerCase().includes(searchLower)
-      );
+      // Apply search filter
+      if (searchTerm && searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase().trim();
+        filtered = filtered.filter(balance => {
+          try {
+            const name = String(balance.Name || '').toLowerCase();
+            const block = String(balance.Block || '').toLowerCase();
+            const lot = String(balance.Lot || '').toLowerCase();
+            const project = String(balance.Project || '').toLowerCase();
+            
+            return name.includes(searchLower) || 
+                   block.includes(searchLower) || 
+                   lot.includes(searchLower) || 
+                   project.includes(searchLower);
+          } catch (err) {
+            console.error('Error filtering balance:', err);
+            return false;
+          }
+        });
+      }
+
+      // Apply project filter
+      if (selectedProject) {
+        filtered = filtered.filter(balance => balance.Project === selectedProject);
+      }
+
+      return filtered;
+    } catch (err) {
+      console.error('Error in filteredBalances:', err);
+      return balances;
     }
-
-    // Apply project filter
-    if (selectedProject) {
-      filtered = filtered.filter(balance => balance.Project === selectedProject);
-    }
-
-    return filtered;
   }, [balances, searchTerm, selectedProject]);
 
   // Sort the filtered balances
@@ -291,21 +338,45 @@ const BalancePage: FC = () => {
             <table className="w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="sticky left-0 bg-gray-50 px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[150px] border-b border-gray-200">Project</th>
-                  <th className="px-6 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[100px] border-b border-gray-200">Block</th>
-                  <th className="px-6 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[100px] border-b border-gray-200">Lot</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[150px] border-b border-gray-200">Name</th>
-                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[150px] border-b border-gray-200">Remaining Balance</th>
-                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[120px] border-b border-gray-200">Amount</th>
-                  <th className="px-6 py-3.5 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[200px] border-b border-gray-200">Months Paid</th>
-                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[120px] border-b border-gray-200">TCP</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[100px] border-b border-gray-200">Actions</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Project
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Block
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lot
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Remaining Balance
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TCP
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Months Paid
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    MONTHS PAID
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Terms
+                  </th>
+                  <th scope="col" className="relative px-6 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedBalances.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-10 text-center">
+                    <td colSpan={11} className="px-6 py-10 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -318,46 +389,52 @@ const BalancePage: FC = () => {
                 ) : (
                   sortedBalances.map((balance) => (
                     <tr key={balance.id} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="sticky left-0 bg-white hover:bg-gray-50 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {balance['Project']}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                        {balance['Block']}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                        {balance['Lot']}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {balance.Project}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {balance['Name']}
+                        {balance.Block}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                        {formatCurrency(balance['Remaining Balance'])}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {balance.Lot}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                        {formatCurrency(balance['Amount'])}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {balance.Name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                        {balance['Months Paid'] || '-'}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatCurrency(balance["Remaining Balance"])}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                        {formatCurrency(balance['TCP'])}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatCurrency(balance["Amount"])}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatCurrency(balance["TCP"])}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {balance["Months Paid"]}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {balance["MONTHS PAID"]}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {balance["Terms"]}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium space-x-2">
                         <button
                           onClick={() => handleEdit(balance)}
-                          className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200 group"
-                          title="Edit Balance"
+                          className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200 group"
+                          title="Add Payment"
                         >
                           <span className="flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" 
-                                className="h-4 w-4 transform transition-transform group-hover:rotate-12" 
+                                className="h-4 w-4" 
                                 fill="none" 
                                 viewBox="0 0 24 24" 
                                 stroke="currentColor"
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                             </svg>
-                            <span className="ml-1 transform transition-transform origin-left group-hover:translate-x-1">Edit</span>
+                            <span className="ml-1">Add Payment</span>
                           </span>
                         </button>
                         <button

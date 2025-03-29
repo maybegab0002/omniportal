@@ -1,5 +1,6 @@
-import React from 'react';
-import { Dialog } from '@headlessui/react';
+import React, { Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 interface EditBalanceModalProps {
   isOpen: boolean;
@@ -11,22 +12,35 @@ interface EditBalanceModalProps {
 
 export interface EditBalanceData {
   id: number;
-  "Name": string;
-  "Remaining Balance": number | null;
-  "Amount": number | null;
-  "Months Paid": string;
-  "TCP": number | null;
   "Project": string;
   "Block": string;
   "Lot": string;
+  "Name": string;
+  "Remaining Balance": number | null;
+  "Amount": number | null;
+  "TCP": number | null;
+  "Months Paid": string;
+  "MONTHS PAID": string;
+  "Terms": string;
 }
 
-const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, onDelete, data }) => {
+const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, data }) => {
   const [formData, setFormData] = React.useState<EditBalanceData | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [currentRemainingBalance, setCurrentRemainingBalance] = React.useState<number | null>(null);
+  const [totalAmount, setTotalAmount] = React.useState<number | null>(null);
+  const [displayMonthsPaid, setDisplayMonthsPaid] = React.useState<string>('');
 
   React.useEffect(() => {
-    setFormData(data);
+    if (data) {
+      setFormData({
+        ...data,
+        "Amount": null
+      });
+      setCurrentRemainingBalance(data["Remaining Balance"]);
+      setTotalAmount(data.Amount);
+      setDisplayMonthsPaid(data["MONTHS PAID"] || '0');
+    }
   }, [data]);
 
   if (!formData) return null;
@@ -37,7 +51,26 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
 
     try {
       setLoading(true);
-      await onSave(formData);
+      // Calculate new months paid count
+      const currentMonthsPaid = parseInt(data?.["MONTHS PAID"] || "0");
+      const newMonthsPaidCount = currentMonthsPaid + 1;
+
+      // Add the new payment to the existing Amount
+      const currentAmount = data?.Amount || 0;
+      const newPaymentAmount = formData['Amount'] || 0;
+      const totalAmount = currentAmount + newPaymentAmount;
+
+      // Update the data with new values
+      const updatedData = {
+        ...formData,
+        'Remaining Balance': currentRemainingBalance,
+        'Amount': totalAmount, // Use the sum of current and new amount
+        'Months Paid': formData['Months Paid'], // The date range string
+        'MONTHS PAID': newMonthsPaidCount.toString() // The incremented count
+      };
+
+      await onSave(updatedData);
+      setDisplayMonthsPaid(newMonthsPaidCount.toString());
       onClose();
     } catch (error) {
       console.error('Error saving balance:', error);
@@ -46,173 +79,212 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
     }
   };
 
-  const handleInputChange = (field: keyof EditBalanceData, value: string) => {
-    if (!formData) return;
-
-    let processedValue: string | number | null = value;
-    
-    // Handle numeric fields
-    if (['Remaining Balance', 'Amount', 'TCP'].includes(field)) {
-      processedValue = value === '' ? null : Number(value);
+  const handleInputChange = (field: keyof EditBalanceData, value: any) => {
+    if (field === 'Amount') {
+      // Convert empty string to null, otherwise parse as float
+      const numValue = value === '' ? null : parseFloat(value);
+      // Calculate new remaining balance based on just the new payment
+      const newRemainingBalance = (data?.["Remaining Balance"] || 0) - (numValue || 0);
+      setCurrentRemainingBalance(newRemainingBalance);
+      
+      // Calculate total amount (current + new payment)
+      const currentAmount = data?.Amount || 0;
+      const newTotal = currentAmount + (numValue || 0);
+      setTotalAmount(newTotal);
+      
+      // Update form data with the numeric value
+      setFormData(prev => prev ? {
+        ...prev,
+        [field]: numValue, // Store as number, not string
+        "Remaining Balance": newRemainingBalance
+      } : null);
+      return;
     }
 
-    setFormData({
-      ...formData,
-      [field]: processedValue
-    });
+    // For other fields
+    setFormData(prev => prev ? {
+      ...prev,
+      [field]: value
+    } : null);
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-2xl w-full bg-white rounded-xl shadow-lg p-6">
-          <Dialog.Title className="text-xl font-semibold text-gray-900 mb-4">
-            Edit Balance Record
-          </Dialog.Title>
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-10" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+        </Transition.Child>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={formData['Name']}
-                  onChange={(e) => handleInputChange('Name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-8 shadow-[0_0_50px_-12px_rgb(0,0,0,0.25)] transition-all">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <Dialog.Title className="text-2xl font-semibold text-gray-900">
+                      Add Payment
+                    </Dialog.Title>
+                    <p className="mt-1 text-sm text-gray-500">Record a new payment for this client</p>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="text-gray-400 hover:text-gray-500 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
 
-              {/* Remaining Balance */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Remaining Balance
-                </label>
-                <input
-                  type="number"
-                  value={formData['Remaining Balance'] ?? ''}
-                  onChange={(e) => handleInputChange('Remaining Balance', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  step="0.01"
-                />
-              </div>
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* Client Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Project:</span>
+                        <span className="ml-2 font-medium text-gray-900">{formData.Project}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Block:</span>
+                        <span className="ml-2 font-medium text-gray-900">{formData.Block}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Lot:</span>
+                        <span className="ml-2 font-medium text-gray-900">{formData.Lot}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Name:</span>
+                        <span className="ml-2 font-medium text-gray-900">{formData.Name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Remaining Balance:</span>
+                        <span className="ml-2 font-medium text-gray-900">
+                          {new Intl.NumberFormat('en-PH', {
+                            style: 'currency',
+                            currency: 'PHP',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          }).format(currentRemainingBalance || 0)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Amount:</span>
+                        <span className="ml-2 font-medium text-gray-900">
+                          {new Intl.NumberFormat('en-PH', {
+                            style: 'currency',
+                            currency: 'PHP',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          }).format(totalAmount || 0)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">TCP:</span>
+                        <span className="ml-2 font-medium text-gray-900">
+                          {new Intl.NumberFormat('en-PH', {
+                            style: 'currency',
+                            currency: 'PHP',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          }).format(formData['TCP'] || 0)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Months Paid:</span>
+                        <span className="ml-2 font-medium text-gray-900">{formData['Months Paid']}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">MONTHS PAID:</span>
+                        <span className="ml-2 font-medium text-gray-900">{displayMonthsPaid}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Terms:</span>
+                        <span className="ml-2 font-medium text-gray-900">{formData['Terms']}</span>
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Amount */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount
-                </label>
-                <input
-                  type="number"
-                  value={formData['Amount'] ?? ''}
-                  onChange={(e) => handleInputChange('Amount', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  step="0.01"
-                />
-              </div>
+                  {/* Payment Information */}
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Payment Amount</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-3 text-gray-500">₱</span>
+                        <input
+                          type="number"
+                          value={formData['Amount'] ?? ''}
+                          onChange={(e) => handleInputChange('Amount', e.target.value)}
+                          className="w-full pl-8 pr-4 py-3 bg-white border-0 rounded-lg ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 transition-shadow"
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          required
+                        />
+                      </div>
+                    </div>
 
-              {/* Months Paid */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Months Paid
-                </label>
-                <input
-                  type="text"
-                  value={formData['Months Paid']}
-                  onChange={(e) => handleInputChange('Months Paid', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="e.g. November 2023 - August 2024"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Months Covered by Payment</label>
+                      <input
+                        type="text"
+                        value={formData['Months Paid']}
+                        onChange={(e) => handleInputChange('Months Paid', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border-0 rounded-lg ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 transition-shadow"
+                        placeholder="e.g. March 22 - February 25"
+                        required
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Format: Month YY - Month YY</p>
+                    </div>
+                  </div>
 
-              {/* TCP */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  TCP
-                </label>
-                <input
-                  type="number"
-                  value={formData['TCP'] ?? ''}
-                  onChange={(e) => handleInputChange('TCP', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  step="0.01"
-                />
-              </div>
-
-              {/* Project */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Project
-                </label>
-                <input
-                  type="text"
-                  value={formData['Project']}
-                  onChange={(e) => handleInputChange('Project', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              {/* Block */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Block
-                </label>
-                <input
-                  type="text"
-                  value={formData['Block']}
-                  onChange={(e) => handleInputChange('Block', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              {/* Lot */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lot
-                </label>
-                <input
-                  type="text"
-                  value={formData['Lot']}
-                  onChange={(e) => handleInputChange('Lot', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-between mt-6">
-              <button
-                type="button"
-                onClick={onDelete}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-              >
-                Clear Fields
-              </button>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md 
-                    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
-                >
-                  {loading ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </div>
-          </form>
-        </Dialog.Panel>
-      </div>
-    </Dialog>
+                  <div className="flex items-center justify-end gap-3 pt-8 mt-8 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-lg ring-1 ring-gray-200 hover:ring-gray-300 transition-all"
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-8 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <div className="flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Processing...
+                        </div>
+                      ) : (
+                        'Record Payment'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
   );
 };
 

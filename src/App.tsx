@@ -7,7 +7,6 @@ import ClientsPage from './pages/ClientsPage';
 import DocumentsPage from './pages/DocumentsPage';
 import InventoryPage from './pages/InventoryPage';
 import PaymentPage from './pages/PaymentPage';
-import CloseDealPage from './pages/CloseDealPage';
 import TeamChatPage from './pages/TeamChatPage';
 import TicketPage from './pages/TicketPage';
 import BalancePage from './pages/BalancePage';
@@ -34,7 +33,6 @@ function App() {
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="payment" element={<PaymentPage />} />
-                <Route path="close-deal" element={<CloseDealPage />} />
                 <Route path="balance" element={<BalancePage />} />
                 <Route path="team-chat" element={<TeamChatPage />} />
                 <Route path="ticket" element={<TicketPage />} />
