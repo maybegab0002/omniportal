@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
+import EmojiPicker from 'emoji-picker-react';
 
 interface Message {
   id: number;
@@ -14,6 +15,7 @@ const TeamChatPage: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [userName, setUserName] = useState<string>('');
 
@@ -55,7 +57,18 @@ const TeamChatPage: React.FC = () => {
 
     // Get user name from localStorage
     const email = localStorage.getItem('userEmail') || '';
-    const name = localStorage.getItem('userName') || email.split('@')[0];
+    let name;
+    if (email === 'guest@gmail.com') {
+      name = 'John Doe';
+    } else if (email === 'rowelhal.hdc@gmail.com') {
+      name = 'Rowelha Langres';
+    } else if (email === 'hdc.ellainegarcia@gmail.com') {
+      name = 'Ellaine Garcia';
+    } else if (email === 'angelap.hdc@gmail.com') {
+      name = 'Angela Pulumbarit';
+    } else {
+      name = localStorage.getItem('userName') || email.split('@')[0];
+    }
     setUserName(name);
     console.log('Current user:', name);
 
@@ -131,6 +144,12 @@ const TeamChatPage: React.FC = () => {
     });
   };
 
+  // Handle emoji selection
+  const onEmojiClick = (emojiObject: any) => {
+    setNewMessage((prevMessage) => prevMessage + emojiObject.emoji);
+    setShowEmojiPicker(false);
+  };
+
   if (error) {
     return (
       <PageTransition>
@@ -191,30 +210,37 @@ const TeamChatPage: React.FC = () => {
                     key={message.id}
                     className={`flex ${message.Name === userName ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`flex items-start max-w-[70%] ${message.Name === userName ? 'flex-row-reverse' : ''}`}>
-                      {/* Avatar */}
-                      <div className={`flex-shrink-0 ${message.Name === userName ? 'ml-3' : 'mr-3'}`}>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                    <div className={`flex flex-col ${message.Name === userName ? 'items-end' : 'items-start'} min-w-0 max-w-[70%]`}>
+                      {/* Header: Name and Time */}
+                      <div className={`flex items-center gap-2 mb-1 ${message.Name === userName ? 'flex-row-reverse pr-10' : 'flex-row pl-10'}`}>
+                        <span className="text-sm font-medium text-gray-700">
+                          {message.Name === 'guest@gmail.com' ? 'John Doe' : 
+                           message.Name === 'rowelhal.hdc@gmail.com' ? 'Rowelha Langres' :
+                           message.Name === 'hdc.ellainegarcia@gmail.com' ? 'Ellaine Garcia' :
+                           message.Name === 'angelap.hdc@gmail.com' ? 'Angela Pulumbarit' :
+                           message.Name}
+                        </span>
+                        <span className="text-xs text-gray-400">|</span>
+                        <span className="text-xs text-gray-400">{formatTime(message.created_at)}</span>
+                      </div>
+
+                      {/* Message with Badge */}
+                      <div className={`flex items-start gap-2 ${message.Name === userName ? 'flex-row-reverse' : ''}`}>
+                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${
+                          message.Name === userName 
+                            ? 'from-purple-500 to-indigo-600' 
+                            : 'from-purple-500 to-indigo-600'
+                        } flex items-center justify-center text-white text-sm font-medium flex-shrink-0`}>
                           {message.Name.charAt(0).toUpperCase()}
                         </div>
-                      </div>
-                      
-                      {/* Message Content */}
-                      <div className={`flex flex-col ${message.Name === userName ? 'items-end' : 'items-start'}`}>
-                        {message.Name !== userName && (
-                          <div className="text-xs font-medium text-gray-500 mb-1 px-1">
-                            {message.Name}
-                          </div>
-                        )}
-                        <div className={`rounded-2xl px-4 py-2 shadow-sm ${
+                        <div className={`rounded-2xl px-4 py-2 shadow-sm flex-grow ${
                           message.Name === userName 
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' 
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white max-w-fit' 
                             : 'bg-white border border-gray-100'
                         }`}>
-                          <p className="text-sm whitespace-pre-wrap break-words">{message.ChatMessage}</p>
-                        </div>
-                        <div className={`text-xs mt-1 px-1 ${message.Name === userName ? 'text-gray-400' : 'text-gray-400'}`}>
-                          {formatTime(message.created_at)}
+                          <p className={`text-sm whitespace-pre-wrap break-words ${message.Name === userName ? 'text-white' : 'text-gray-700'}`}>
+                            {message.ChatMessage}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -227,29 +253,40 @@ const TeamChatPage: React.FC = () => {
 
           {/* Message Input */}
           <div className="border-t border-gray-100 p-4 bg-white">
-            <form onSubmit={sendMessage} className="flex space-x-4">
-              <div className="flex-1 relative">
+            <form onSubmit={sendMessage} className="flex flex-col">
+              <div className="relative flex items-center">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (newMessage.trim()) {
+                        sendMessage(e);
+                      }
+                    }
+                  }}
                   placeholder="Type your message..."
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-shadow text-sm"
+                  className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow text-sm"
                 />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-                  {/* Add emoji picker, file upload, etc. buttons here */}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="absolute right-3 text-gray-400 hover:text-purple-500 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={!newMessage.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-medium hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm flex items-center"
-              >
-                <span>Send</span>
-                <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-20 right-4 z-10">
+                  <div className="shadow-lg rounded-lg">
+                    <EmojiPicker onEmojiClick={onEmojiClick} />
+                  </div>
+                </div>
+              )}
             </form>
           </div>
         </div>

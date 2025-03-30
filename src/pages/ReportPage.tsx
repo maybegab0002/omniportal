@@ -103,6 +103,12 @@ const ReportPage: React.FC = () => {
   return (
     <PageTransition>
       <div className="container mx-auto px-4 py-8">
+        {/* Page Title and Description */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Reports</h1>
+          <p className="text-gray-600">A comprehensive list of all payment reports and transactions in the system.</p>
+        </div>
+
         {/* Search Bar and Filters */}
         <div className="flex justify-between items-center mb-6">
           <div className="relative w-64">
