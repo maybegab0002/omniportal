@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Fragment } from 'react';
+import React, { useEffect, useState, Fragment, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
@@ -276,6 +276,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [selectedBlockLot, setSelectedBlockLot] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [penalty, setPenalty] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState<Date | null>(null);
@@ -295,21 +296,44 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
     return new Date(date.toLocaleString('en-US', { timeZone: userTimezone }));
   };
 
+  // Group balance records by project
+  const projectBalances = useMemo(() => {
+    const grouped = balanceRecords.reduce((acc, record) => {
+      if (!acc[record.Project]) {
+        acc[record.Project] = [];
+      }
+      acc[record.Project].push(record);
+      return acc;
+    }, {} as { [key: string]: Balance[] });
+    return grouped;
+  }, [balanceRecords]);
+
   // Set initial selected block and lot
   useEffect(() => {
     if (selectedBlock && selectedLot) {
       setSelectedBlockLot(`Block ${selectedBlock} Lot ${selectedLot}`);
+      // Find and set the project for the selected block and lot
+      const record = balanceRecords.find(r => r.Block === selectedBlock && r.Lot === selectedLot);
+      if (record) {
+        setSelectedProject(record.Project);
+      }
     } else if (balanceRecords.length > 0) {
-      const firstRecord = balanceRecords[0];
-      setSelectedBlockLot(`Block ${firstRecord.Block} Lot ${firstRecord.Lot}`);
+      // If client has only one project, auto-select it
+      const projects = Object.keys(projectBalances);
+      if (projects.length === 1) {
+        setSelectedProject(projects[0]);
+        const firstRecord = balanceRecords[0];
+        setSelectedBlockLot(`Block ${firstRecord.Block} Lot ${firstRecord.Lot}`);
+      }
     }
-  }, [selectedBlock, selectedLot, balanceRecords]);
+  }, [selectedBlock, selectedLot, balanceRecords, projectBalances]);
 
   // Clear form when modal is closed
   useEffect(() => {
     if (!isOpen) {
       setFile(null);
       setSelectedBlockLot(null);
+      setSelectedProject('');
       setAmount('');
       setPenalty('');
       setPaymentDate(null);
@@ -377,6 +401,16 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
     }
   };
 
+  const handleProjectChange = (project: string) => {
+    setSelectedProject(project);
+    // Reset block & lot when project changes
+    setSelectedBlockLot(null);
+  };
+
+  const handleBlockLotChange = (blockLot: string) => {
+    setSelectedBlockLot(blockLot);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -388,7 +422,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
         throw new Error('Please select a receipt file to upload');
       }
 
-      if (!selectedBlockLot || !amount || !paymentDate || !paymentMonth) {
+      if (!selectedProject || !selectedBlockLot || !amount || !paymentDate || !paymentMonth) {
         toast.error('Please fill in all required fields');
         throw new Error('Please fill in all required fields');
       }
@@ -445,6 +479,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
         setSuccess(false);
         setFile(null);
         setSelectedBlockLot(null);
+        setSelectedProject('');
         setAmount('');
         setPenalty('');
         setPaymentDate(null);
@@ -514,18 +549,39 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           {/* Left Column */}
                           <div className="space-y-6">
+                            {/* Project Selection */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
+                              <div className="relative">
+                                <select
+                                  value={selectedProject || ''}
+                                  onChange={(e) => handleProjectChange(e.target.value)}
+                                  className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-4 py-2.5 pr-10 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
+                                  required
+                                >
+                                  <option value="" disabled>Select Project</option>
+                                  {Object.keys(projectBalances).map((project, index) => (
+                                    <option key={index} value={project}>{project}</option>
+                                  ))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                  <ChevronDownIcon className="h-5 w-5" />
+                                </div>
+                              </div>
+                            </div>
+
                             {/* Block and Lot Selection */}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Block and Lot</label>
                               <div className="relative">
                                 <select
                                   value={selectedBlockLot || ''}
-                                  onChange={(e) => setSelectedBlockLot(e.target.value)}
+                                  onChange={(e) => handleBlockLotChange(e.target.value)}
                                   className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-4 py-2.5 pr-10 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
                                   required
                                 >
-                                  <option value="">Select Block and Lot</option>
-                                  {balanceRecords.map((record, index) => (
+                                  <option value="" disabled>Select Block and Lot</option>
+                                  {projectBalances[selectedProject] && projectBalances[selectedProject].map((record: Balance, index: number) => (
                                     <option key={index} value={`Block ${record.Block} Lot ${record.Lot}`}>
                                       Block {record.Block} Lot {record.Lot}
                                     </option>
@@ -969,10 +1025,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all modal-scrollbar">
-                <Dialog.Title
-                  as="h3"
-                  className="text-xl font-semibold leading-6 text-gray-900"
-                >
+                <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-gray-900">
                   Change Your Password
                 </Dialog.Title>
                 <div className="mt-2">
@@ -1342,11 +1395,11 @@ const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, re
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                      <XCircleIcon className="h-6 w-6 text-red-600" />
-                    </div>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Receipt Found</h3>
-                    <p className="text-sm text-gray-500">The receipt could not be loaded.</p>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2v-3a2 2 0 114 0v-3a2 2 0 002-2V7a2 2 0 00-2-2H5z" />
+                    </svg>
+                    <p className="text-gray-500 mb-2">No Receipt Found</p>
+                    <p className="text-sm text-gray-400">The receipt could not be loaded.</p>
                   </div>
                 )}
               </Dialog.Panel>
@@ -2255,7 +2308,7 @@ const ClientDashboardPage: React.FC = () => {
             <div className="h-full w-64 bg-white p-4 shadow-lg flex flex-col">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold">Menu</h3>
-                <button 
+                <button
                   onClick={() => setMenuOpen(false)}
                   className="p-2 rounded-full hover:bg-gray-100"
                 >

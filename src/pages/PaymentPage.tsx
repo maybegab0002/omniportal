@@ -15,6 +15,7 @@ interface Payment {
   Status: string;
   receipt_path: string;
   notified?: boolean;
+  Project: string;
 }
 
 // View Receipt Modal Props
@@ -425,8 +426,10 @@ const PaymentPage: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      // Just set the data directly since Project is already in the Payment table
       setPayments(data || []);
-      await refreshPendingCount(); // Refresh the pending count after fetching payments
+      await refreshPendingCount();
     } catch (error) {
       console.error('Error fetching payments:', error);
       toast.error('Failed to load payments');
@@ -600,24 +603,24 @@ const PaymentPage: React.FC = () => {
                 <table className="w-full table-auto divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Client Name</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Project</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Block & Lot</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Amount</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Penalty Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Status</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Receipt</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[13%]">Action</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredPayments.map((payment, index) => (
                       <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {payment.Name}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(payment["Date of Payment"]).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {payment.Project}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {payment["Block & Lot"]}
@@ -628,23 +631,7 @@ const PaymentPage: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {payment["Penalty Amount"] ? `₱${payment["Penalty Amount"].toLocaleString()}` : 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                              ${payment.Status === "Approved" ? "bg-green-100 text-green-800" : 
-                                payment.Status === "Rejected" ? "bg-red-100 text-red-800" : 
-                                "bg-yellow-100 text-yellow-800"}`}>
-                              {payment.Status}
-                            </span>
-                            {payment.Status === 'Pending' && !payment.notified && (
-                              <span className="ml-2 flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
                           {payment.receipt_path ? (
                             <button
                               onClick={() => handleViewReceipt(payment)}
@@ -699,6 +686,22 @@ const PaymentPage: React.FC = () => {
                               </span>
                             </button>
                           )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                              ${payment.Status === "Approved" ? "bg-green-100 text-green-800" : 
+                                payment.Status === "Rejected" ? "bg-red-100 text-red-800" : 
+                                "bg-yellow-100 text-yellow-800"}`}>
+                              {payment.Status}
+                            </span>
+                            {payment.Status === 'Pending' && !payment.notified && (
+                              <span className="ml-2 flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

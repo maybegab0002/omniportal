@@ -99,11 +99,30 @@ const BalancePage: FC = () => {
 
       if (fetchError) throw fetchError;
 
-      // Calculate the new months paid count
+      // Only increment if a new payment is being added
+      const isNewPayment = updatedData["Remaining Balance"] !== currentData["Remaining Balance"];
       const currentMonthsPaid = parseInt(currentData['MONTHS PAID'] || '0');
-      const newMonthsPaidCount = currentMonthsPaid + 1;
+      const newMonthsPaidCount = isNewPayment ? currentMonthsPaid + 1 : currentMonthsPaid;
 
-      // Update the record
+      // If there's a new payment, save it to Payment Record
+      if (isNewPayment) {
+        const paymentAmount = (currentData["Remaining Balance"] || 0) - (updatedData["Remaining Balance"] || 0);
+        const { error: paymentError } = await supabase
+          .from('Payment Record')
+          .insert([{
+            "Name": updatedData["Name"],
+            "Block": updatedData["Block"],
+            "Lot": updatedData["Lot"],
+            "Project": updatedData["Project"],
+            "Amount": paymentAmount,
+            "Date": new Date().toISOString(),
+            "Payment Type": "Monthly Payment"
+          }]);
+
+        if (paymentError) throw paymentError;
+      }
+
+      // Update the Balance record
       const { error } = await supabase
         .from('Balance')
         .update({
@@ -115,7 +134,7 @@ const BalancePage: FC = () => {
           "Amount": updatedData["Amount"],
           "TCP": updatedData["TCP"],
           "Months Paid": updatedData["Months Paid"], // This is the string range (e.g., "March 22 - February 25")
-          "MONTHS PAID": newMonthsPaidCount.toString(), // This is the numeric count
+          "MONTHS PAID": updatedData["MONTHS PAID"] || newMonthsPaidCount.toString(), // Use provided value or calculated one
           "Terms": updatedData["Terms"]
         })
         .eq('id', updatedData.id);
@@ -203,6 +222,81 @@ const BalancePage: FC = () => {
     const lotNumA = parseInt(lotA.replace(/\D/g, '') || '0');
     const lotNumB = parseInt(lotB.replace(/\D/g, '') || '0');
     return lotNumA - lotNumB;
+  };
+
+  const isPaymentCompleted = (balance: any) => {
+    return balance["Amount"] === balance["TCP"] && balance["MONTHS PAID"] === balance["Terms"];
+  };
+
+  const renderActionButtons = (balance: any) => {
+    if (isPaymentCompleted(balance)) {
+      return (
+        <div className="flex items-center justify-center px-4 py-2 bg-green-50 text-green-700 rounded-md">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Payment Completed
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={() => handleEditDetails(balance)}
+          className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200 group"
+          title="Edit Balance"
+        >
+          <span className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" 
+                className="h-4 w-4" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span className="ml-1">Edit</span>
+          </span>
+        </button>
+        {!isPaymentCompleted(balance) && (
+          <button
+            onClick={() => handleEdit(balance)}
+            className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200 group"
+            title="Add Payment"
+          >
+            <span className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" 
+                  className="h-4 w-4" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="ml-1">Add Payment</span>
+            </span>
+          </button>
+        )}
+        <button
+          onClick={() => handleDeleteConfirm(balance)}
+          className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors duration-200 group"
+          title="Delete Balance"
+        >
+          <span className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" 
+                className="h-4 w-4 transform transition-transform group-hover:-rotate-12" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span className="ml-1 transform transition-transform origin-left group-hover:translate-x-1">Delete</span>
+          </span>
+        </button>
+      </div>
+    );
   };
 
   // Filter and sort balances
@@ -459,57 +553,7 @@ const BalancePage: FC = () => {
                         {balance["Terms"]}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium space-x-2">
-                        <button
-                          onClick={() => handleEditDetails(balance)}
-                          className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200 group"
-                          title="Edit Balance"
-                        >
-                          <span className="flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" 
-                                className="h-4 w-4" 
-                                fill="none" 
-                                viewBox="0 0 24 24" 
-                                stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            <span className="ml-1">Edit</span>
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => handleEdit(balance)}
-                          className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200 group"
-                          title="Add Payment"
-                        >
-                          <span className="flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" 
-                                className="h-4 w-4" 
-                                fill="none" 
-                                viewBox="0 0 24 24" 
-                                stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span className="ml-1">Add Payment</span>
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteConfirm(balance)}
-                          className="text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors duration-200 group"
-                          title="Delete Balance"
-                        >
-                          <span className="flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" 
-                                className="h-4 w-4 transform transition-transform group-hover:-rotate-12" 
-                                fill="none" 
-                                viewBox="0 0 24 24" 
-                                stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            <span className="ml-1 transform transition-transform origin-left group-hover:translate-x-1">Delete</span>
-                          </span>
-                        </button>
+                        {renderActionButtons(balance)}
                       </td>
                     </tr>
                   ))

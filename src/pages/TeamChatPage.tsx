@@ -20,7 +20,6 @@ const gf = new GiphyFetch('36Kpjum4bW3K80k2GIlLnUDaIdcvRjOO'); // Replace with y
 const TeamChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -43,20 +42,23 @@ const TeamChatPage: React.FC = () => {
     
     // Enable real-time updates
     const channel = supabase
-      .channel('team-chat-changes')
+      .channel('public:Team Chat')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'Team Chat'
         },
         (payload) => {
           console.log('Real-time event received:', payload);
-          if (payload.eventType === 'INSERT') {
-            const newMessage = payload.new as Message;
-            console.log('Adding new message to state:', newMessage);
-            setMessages((currentMessages) => [...(currentMessages || []), newMessage]);
+          const newMessage = payload.new as Message;
+          
+          // Only add message if it's from another user
+          if (newMessage.Name !== userName) {
+            console.log('Adding message from:', newMessage.Name);
+            setMessages((currentMessages) => [...currentMessages, newMessage]);
+            scrollToBottom();
           }
         }
       )
@@ -89,7 +91,6 @@ const TeamChatPage: React.FC = () => {
 
   const fetchMessages = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('Team Chat')
         .select('*')
@@ -104,10 +105,19 @@ const TeamChatPage: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching messages:', err.message);
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
+
+  // Auto-refresh messages every 0.5 seconds
+  useEffect(() => {
+    fetchMessages(); // Initial fetch
+    
+    const interval = setInterval(() => {
+      fetchMessages();
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -121,27 +131,48 @@ const TeamChatPage: React.FC = () => {
     if (!newMessage.trim() && !gifUrl) return;
 
     try {
-      const newMessageData: Message = {
-        id: Date.now(),
+      const messageData = {
         Name: userName,
         ChatMessage: gifUrl ? '' : newMessage.trim(),
-        messageType: gifUrl ? 'gif' : 'text',
+        messageType: (gifUrl ? 'gif' : 'text') as 'text' | 'gif',
         gifUrl: gifUrl || undefined,
         created_at: new Date().toISOString()
       };
 
-      console.log('Sending message:', newMessageData);
-      const { error } = await supabase
-        .from('Team Chat')
-        .insert([newMessageData]);
+      // Add message optimistically for sender
+      const optimisticMessage: Message = {
+        ...messageData,
+        id: Date.now() // Temporary ID
+      };
+      setMessages(currentMessages => [...currentMessages, optimisticMessage]);
+      scrollToBottom();
 
-      if (error) throw error;
-      
-      // Update messages state immediately
-      setMessages(currentMessages => [...(currentMessages || []), newMessageData]);
+      console.log('Sending message:', messageData);
+      const { data, error } = await supabase
+        .from('Team Chat')
+        .insert([messageData])
+        .select()
+        .single();
+
+      if (error) {
+        // Remove optimistic message if there's an error
+        setMessages(currentMessages => 
+          currentMessages.filter(msg => msg.id !== optimisticMessage.id)
+        );
+        throw error;
+      }
+
+      // Replace optimistic message with real one
+      setMessages(currentMessages => 
+        currentMessages.map(msg => 
+          msg.id === optimisticMessage.id ? data : msg
+        )
+      );
+
+      // Clear input and close GIF picker
       setNewMessage('');
       setShowGifPicker(false);
-      console.log('Message sent and state updated');
+      console.log('Message sent successfully:', data);
     } catch (err: any) {
       console.error('Error sending message:', err);
       alert('Failed to send message: ' + err.message);
@@ -203,14 +234,7 @@ const TeamChatPage: React.FC = () => {
         <div className="flex-1 bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col border border-gray-100">
           {/* Messages Area */}
           <div className="flex-1 p-6 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-                  <p className="text-sm text-gray-500 mt-2">Loading messages...</p>
-                </div>
-              </div>
-            ) : messages.length === 0 ? (
+            {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <div className="w-16 h-16 mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                   <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
