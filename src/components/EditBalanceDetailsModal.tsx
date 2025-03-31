@@ -70,175 +70,244 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
             leaveFrom="opacity-100 scale-100"
             leaveTo="opacity-0 scale-95"
           >
-            <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
-              <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
-                Edit Balance Details
+            <div className="inline-block w-full max-w-2xl p-6 my-6 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-3xl">
+              <Dialog.Title as="h3" className="text-xl font-bold text-gray-900 mb-4 flex justify-between items-center">
+                <div className="flex items-center space-x-2">
+                  <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
+                  <span>Edit Balance Details</span>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100 p-1.5"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
               </Dialog.Title>
 
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-500"
-              >
-                <XMarkIcon className="h-6 w-6" />
-              </button>
-
-              <form onSubmit={handleSubmit} className="mt-4">
+              <form onSubmit={handleSubmit} className="mt-2 space-y-4">
                 <div className="space-y-4">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={data?.Name || ''}
-                      onChange={(e) => {
-                        if (data) {
-                          onSave({ ...data, Name: e.target.value });
-                        }
-                      }}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    />
-                  </div>
+                  {/* Client Information Section */}
+                  <div className="space-y-3">
+                    <h4 className="text-base font-semibold text-gray-700 flex items-center space-x-2">
+                      <span className="h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
+                      </span>
+                      <span>Client Information</span>
+                    </h4>
+                    <div className="grid gap-3">
+                      <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-600 mb-1">
+                          Name
+                        </label>
+                        <input
+                          type="text"
+                          id="name"
+                          value={data?.Name || ''}
+                          onChange={(e) => {
+                            if (data) {
+                              onSave({ ...data, Name: e.target.value });
+                            }
+                          }}
+                          className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                          placeholder="Enter client name"
+                        />
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="block" className="block text-sm font-medium text-gray-700">
-                        Block
-                      </label>
-                      <input
-                        type="text"
-                        id="block"
-                        value={data?.Block || ''}
-                        onChange={(e) => {
-                          if (data) {
-                            onSave({ ...data, Block: e.target.value });
-                          }
-                        }}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      />
-                    </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="block" className="block text-sm font-medium text-gray-600 mb-1">
+                            Block
+                          </label>
+                          <input
+                            type="text"
+                            id="block"
+                            value={data?.Block || ''}
+                            disabled
+                            className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
+                            placeholder="Enter block"
+                          />
+                        </div>
 
-                    <div>
-                      <label htmlFor="lot" className="block text-sm font-medium text-gray-700">
-                        Lot
-                      </label>
-                      <input
-                        type="text"
-                        id="lot"
-                        value={data?.Lot || ''}
-                        onChange={(e) => {
-                          if (data) {
-                            onSave({ ...data, Lot: e.target.value });
-                          }
-                        }}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      />
-                    </div>
-                  </div>
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="lot" className="block text-sm font-medium text-gray-600 mb-1">
+                            Lot
+                          </label>
+                          <input
+                            type="text"
+                            id="lot"
+                            value={data?.Lot || ''}
+                            disabled
+                            className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
+                            placeholder="Enter lot"
+                          />
+                        </div>
+                      </div>
 
-                  <div>
-                    <label htmlFor="project" className="block text-sm font-medium text-gray-700">
-                      Project
-                    </label>
-                    <input
-                      type="text"
-                      id="project"
-                      value={data?.Project || ''}
-                      onChange={(e) => {
-                        if (data) {
-                          onSave({ ...data, Project: e.target.value });
-                        }
-                      }}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="terms" className="block text-sm font-medium text-gray-700">
-                      Terms
-                    </label>
-                    <input
-                      type="text"
-                      id="terms"
-                      value={data?.Terms || ''}
-                      onChange={(e) => {
-                        if (data) {
-                          onSave({ ...data, Terms: e.target.value });
-                        }
-                      }}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="tcp" className="block text-sm font-medium text-gray-700">
-                        TCP
-                      </label>
-                      <input
-                        type="number"
-                        id="tcp"
-                        value={data?.TCP || ''}
-                        onChange={(e) => {
-                          if (data) {
-                            onSave({ ...data, TCP: parseFloat(e.target.value) || null });
-                          }
-                        }}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
-                        Amount
-                      </label>
-                      <input
-                        type="number"
-                        id="amount"
-                        value={data?.Amount || ''}
-                        onChange={(e) => {
-                          if (data) {
-                            onSave({ ...data, Amount: parseFloat(e.target.value) || null });
-                          }
-                        }}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                      />
+                      <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                        <label htmlFor="project" className="block text-sm font-medium text-gray-600 mb-1">
+                          Project
+                        </label>
+                        <input
+                          type="text"
+                          id="project"
+                          value={data?.Project || ''}
+                          disabled
+                          className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
+                          placeholder="Enter project name"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label htmlFor="remaining-balance" className="block text-sm font-medium text-gray-700">
-                      Remaining Balance
-                    </label>
-                    <input
-                      type="number"
-                      id="remaining-balance"
-                      value={data?.["Remaining Balance"] || ''}
-                      onChange={(e) => {
-                        if (data) {
-                          onSave({ ...data, "Remaining Balance": parseFloat(e.target.value) || null });
-                        }
-                      }}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    />
+                  {/* Payment Details Section */}
+                  <div className="space-y-3">
+                    <h4 className="text-base font-semibold text-gray-700 flex items-center space-x-2">
+                      <span className="h-4 w-4 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
+                      </span>
+                      <span>Payment Details</span>
+                    </h4>
+                    <div className="grid gap-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="monthsPaid" className="block text-sm font-medium text-gray-600 mb-1">
+                            Months Paid
+                          </label>
+                          <input
+                            type="text"
+                            id="monthsPaid"
+                            value={data?.["Months Paid"] || ''}
+                            onChange={(e) => {
+                              if (data) {
+                                onSave({ ...data, "Months Paid": e.target.value });
+                              }
+                            }}
+                            className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                            placeholder="Enter months paid"
+                          />
+                        </div>
+
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="MONTHSPAID" className="block text-sm font-medium text-gray-600 mb-1">
+                            MONTHS PAID
+                          </label>
+                          <input
+                            type="text"
+                            id="MONTHSPAID"
+                            value={data?.["MONTHS PAID"] || ''}
+                            onChange={(e) => {
+                              if (data) {
+                                onSave({ ...data, "MONTHS PAID": e.target.value });
+                              }
+                            }}
+                            className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                            placeholder="Enter MONTHS PAID"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="tcp" className="block text-sm font-medium text-gray-600 mb-1">
+                            TCP
+                          </label>
+                          <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                              <span className="text-gray-500 sm:text-sm">₱</span>
+                            </div>
+                            <input
+                              type="number"
+                              id="tcp"
+                              value={data?.TCP || ''}
+                              disabled
+                              className="block w-full rounded-md border-0 bg-gray-50 pl-7 pr-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="amount" className="block text-sm font-medium text-gray-600 mb-1">
+                            Amount
+                          </label>
+                          <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                              <span className="text-gray-500 sm:text-sm">₱</span>
+                            </div>
+                            <input
+                              type="number"
+                              id="amount"
+                              value={data?.Amount || ''}
+                              onChange={(e) => {
+                                if (data) {
+                                  onSave({ ...data, Amount: parseFloat(e.target.value) || null });
+                                }
+                              }}
+                              className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="terms" className="block text-sm font-medium text-gray-600 mb-1">
+                            Terms
+                          </label>
+                          <input
+                            type="text"
+                            id="terms"
+                            value={data?.Terms || ''}
+                            disabled
+                            className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
+                            placeholder="Enter terms"
+                          />
+                        </div>
+
+                        <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                          <label htmlFor="remainingBalance" className="block text-sm font-medium text-gray-600 mb-1">
+                            Remaining Balance
+                          </label>
+                          <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                              <span className="text-gray-500 sm:text-sm">₱</span>
+                            </div>
+                            <input
+                              type="number"
+                              id="remainingBalance"
+                              value={data?.["Remaining Balance"] || ''}
+                              onChange={(e) => {
+                                if (data) {
+                                  onSave({ ...data, "Remaining Balance": parseFloat(e.target.value) || null });
+                                }
+                              }}
+                              className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Save Changes
-                  </button>
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="inline-flex justify-center rounded-lg px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="inline-flex justify-center rounded-lg px-4 py-2 text-sm font-medium text-white bg-blue-600 shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>

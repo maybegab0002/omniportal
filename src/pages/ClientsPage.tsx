@@ -9,6 +9,7 @@ interface Client {
   Name: string;
   Email?: string;
   auth_id?: string;
+  is_active?: boolean;
 }
 
 interface CreateAccountModalProps {
@@ -339,6 +340,8 @@ const ClientsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [sortBy, setSortBy] = useState<'firstName' | 'lastName'>('firstName');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   
   const itemsPerPage = 15;
   const projects = ['Living Water Subdivision', 'Havahills Estate'];
@@ -447,7 +450,7 @@ const ClientsPage: React.FC = () => {
       // Always fetch by Name since we don't have separate firstName/lastName columns
       const { data, error } = await supabase
         .from('Clients')
-        .select('id, Name, Email, auth_id')
+        .select('id, Name, Email, auth_id, is_active')
         .order('Name', { ascending: true });
 
       if (error) {
@@ -510,6 +513,45 @@ const ClientsPage: React.FC = () => {
 
   const handleNextPage = () => {
     setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+  const handleDelete = async (client: Client) => {
+    setClientToDelete(client);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!clientToDelete) return;
+
+    try {
+      // First delete the auth user
+      if (clientToDelete.auth_id) {
+        const { error: authError } = await supabase.auth.admin.deleteUser(
+          clientToDelete.auth_id
+        );
+
+        if (authError) throw authError;
+      }
+
+      // Then delete the client record
+      const { error: deleteError } = await supabase
+        .from('Clients')
+        .delete()
+        .eq('id', clientToDelete.id);
+
+      if (deleteError) throw deleteError;
+
+      // Update local state
+      setClients(prevClients =>
+        prevClients.filter(c => c.id !== clientToDelete.id)
+      );
+
+      setShowDeleteConfirm(false);
+      setClientToDelete(null);
+    } catch (error: any) {
+      console.error('Error deleting client:', error);
+      alert('Failed to delete client account');
+    }
   };
 
   if (error) {
@@ -653,44 +695,59 @@ const ClientsPage: React.FC = () => {
                             <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                               {client.Name}
                               {client.auth_id && (
-                                <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  <svg className="h-2 w-2 text-green-400" fill="currentColor" viewBox="0 0 8 8">
+                                <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  <svg className="h-2 w-2 text-blue-400" fill="currentColor" viewBox="0 0 8 8">
                                     <circle cx="4" cy="4" r="3" />
                                   </svg>
-                                  Account Active
+                                  Has Account
                                 </span>
                               )}
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                              <button 
-                                onClick={() => {
-                                  setSelectedClient(client);
-                                  setIsModalOpen(true);
-                                }}
-                                disabled={!!client.auth_id}
-                                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                                  client.auth_id 
-                                    ? 'text-gray-500 bg-gray-50 cursor-not-allowed' 
-                                    : 'text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100'
-                                }`}
-                                title={client.auth_id ? 'Client already has an account' : 'Create account for this client'}
-                              >
-                                {client.auth_id ? (
-                                  <span className="flex items-center gap-1.5">
-                                    <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fillRule="evenodd" d="M10 2a4 4 0 100 8 4 4 0 000-8zM5.293 9.707a1 1 0 011.414 0L10 13l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
-                                    Account Exists
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center gap-1.5">
-                                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fillRule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm10-4a1 1 0 00-2 0v3H6a1 1 0 100 2h3v3a1 1 0 102 0v-3h3a1 1 0 100-2h-3V6z" clipRule="evenodd" />
-                                    </svg>
-                                    Create Account
-                                  </span>
+                              <div className="flex justify-end gap-2">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedClient(client);
+                                    setIsModalOpen(true);
+                                  }}
+                                  disabled={!!client.auth_id}
+                                  className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                                    client.auth_id 
+                                      ? 'text-gray-500 bg-gray-50 cursor-not-allowed' 
+                                      : 'text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100'
+                                  }`}
+                                  title={client.auth_id ? 'Client already has an account' : 'Create account for this client'}
+                                >
+                                  {client.auth_id ? (
+                                    <span className="flex items-center gap-1.5">
+                                      <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 2a4 4 0 100 8 4 4 0 000-8zM5.293 9.707a1 1 0 011.414 0L10 13l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      </svg>
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1.5">
+                                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm10-4a1 1 0 00-2 0v3H6a1 1 0 100 2h3v3a1 1 0 102 0v-3h3a1 1 0 100-2h-3V6z" clipRule="evenodd" />
+                                      </svg>
+                                    </span>
+                                  )}
+                                  {client.auth_id ? 'Account Exists' : 'Create Account'}
+                                </button>
+                                {client.auth_id && (
+                                  <button
+                                    onClick={() => handleDelete(client)}
+                                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 transition-all duration-200"
+                                    title="Delete client account"
+                                  >
+                                    <span className="flex items-center gap-1.5">
+                                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                      Delete
+                                    </span>
+                                  </button>
                                 )}
-                              </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -728,11 +785,11 @@ const ClientsPage: React.FC = () => {
                             <button
                               onClick={handlePreviousPage}
                               disabled={currentPage === 1}
-                              className="relative inline-flex items-center rounded-lg p-2 text-gray-400 hover:text-blue-600 focus:z-20 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                              className="relative inline-flex items-center rounded-lg p-2 text-gray-400 hover:text-blue-600 focus:z-20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                             >
                               <span className="sr-only">Previous</span>
                               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5 4.25a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                               </svg>
                             </button>
                             <div className="flex items-center">
@@ -741,11 +798,11 @@ const ClientsPage: React.FC = () => {
                             <button
                               onClick={handleNextPage}
                               disabled={currentPage === totalPages}
-                              className="relative inline-flex items-center rounded-lg p-2 text-gray-400 hover:text-blue-600 focus:z-20 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                              className="relative inline-flex items-center rounded-lg p-2 text-gray-400 hover:text-blue-600 focus:z-20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                             >
                               <span className="sr-only">Next</span>
                               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06.02z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.04l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06.02z" clipRule="evenodd" />
                               </svg>
                             </button>
                           </nav>
@@ -778,6 +835,47 @@ const ClientsPage: React.FC = () => {
           clientName={selectedClient.Name}
           clientId={selectedClient.id}
         />
+      )}
+      {showDeleteConfirm && clientToDelete && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg px-4 pt-5 pb-4 overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full sm:p-6">
+            <div className="sm:flex sm:items-start">
+              <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Delete Client Account</h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to delete the account for <span className="font-medium text-gray-900">{clientToDelete.Name}</span>?
+                    This action cannot be undone and all account data will be permanently deleted.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setClientToDelete(null);
+                }}
+                className="mt-3 sm:mt-0 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

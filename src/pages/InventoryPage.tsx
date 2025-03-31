@@ -971,43 +971,41 @@ const InventoryPage: React.FC = () => {
       </div>
 
       <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center justify-between mb-8">
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
+        {/* Left side - Search */}
+        <div className="w-full sm:w-64">
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1114 0 7 7 0 01-14 0z" clipRule="evenodd" />
+              </svg>
+            </div>
             <input
               type="text"
               placeholder="Search properties..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
+              className="block w-full rounded-lg border-0 py-2.5 pl-10 pr-10 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
             />
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-              <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1114 0 7 7 0 01-14 0z" clipRule="evenodd" />
-              </svg>
-            </div>
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-500 focus:outline-none"
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-500"
               >
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                </svg>
+                <XMarkIcon className="h-5 w-5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Right-aligned dropdowns */}
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+        {/* Right side - Filters */}
+        <div className="flex flex-row gap-3 w-full sm:w-auto">
           {/* Project Selector */}
-          <div className="w-full sm:w-48">
-            <div className="relative rounded-lg shadow-sm">
+          <div className="w-48">
+            <div className="relative">
               <select
                 value={selectedProject.id}
                 onChange={(e) => setSelectedProject(projects.find(p => p.id === e.target.value) || projects[0])}
-                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-8 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all appearance-none"
               >
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
@@ -1015,8 +1013,8 @@ const InventoryPage: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -1024,12 +1022,12 @@ const InventoryPage: React.FC = () => {
           </div>
 
           {/* Status Filter */}
-          <div className="w-full sm:w-48">
-            <div className="relative rounded-lg shadow-sm">
+          <div className="w-40">
+            <div className="relative">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
+                className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-8 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all appearance-none"
               >
                 {statusOptions.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -1037,8 +1035,8 @@ const InventoryPage: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -1685,8 +1683,8 @@ const InventoryPage: React.FC = () => {
                       </button>
                       <button
                         type="button"
+                        className="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hover:shadow active:scale-95 transition-all sm:mt-0 sm:w-auto"
                         onClick={() => setIsEditModalOpen(false)}
-                        className="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hover:shadow active:scale-95 transition-all sm:mt-0 sm:w-auto"
                       >
                         Cancel
                       </button>
@@ -1744,32 +1742,41 @@ const InventoryPage: React.FC = () => {
               leaveTo="opacity-0 scale-95"
             >
               <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
-                <Dialog.Title
-                  as="h3"
-                  className="text-lg font-medium leading-6 text-gray-900"
-                >
-                  Confirm Reopen Property
-                </Dialog.Title>
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500">
-                    Are you sure you want to reopen this property? This will clear all buyer information and mark the property as Available.
-                  </p>
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg leading-6 font-medium text-gray-900"
+                    >
+                      Confirm Reopen Property
+                    </Dialog.Title>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Are you sure you want to reopen this property? This will clear all buyer information and mark the property as Available.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-4 flex justify-end space-x-3">
+                <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
                   <button
                     type="button"
-                    className="inline-flex justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 border border-gray-300 transition-colors"
-                    onClick={() => setIsReopenModalOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150"
                     onClick={confirmReopen}
                   >
                     Reopen Property
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 sm:mt-0 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 hover:shadow active:scale-95 transition-all"
+                    onClick={() => setIsReopenModalOpen(false)}
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>

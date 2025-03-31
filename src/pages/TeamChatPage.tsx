@@ -2,13 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
 import EmojiPicker from 'emoji-picker-react';
+import { GiphyFetch } from '@giphy/js-fetch-api';
+import { Grid } from '@giphy/react-components';
 
 interface Message {
   id: number;
   created_at: string;
   Name: string;
   ChatMessage: string;
+  messageType?: 'text' | 'gif';
+  gifUrl?: string;
 }
+
+// Initialize GIPHY
+const gf = new GiphyFetch('36Kpjum4bW3K80k2GIlLnUDaIdcvRjOO'); // Replace with your GIPHY API key
 
 const TeamChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -16,6 +23,8 @@ const TeamChatPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearchTerm, setGifSearchTerm] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [userName, setUserName] = useState<string>('');
 
@@ -107,14 +116,17 @@ const TeamChatPage: React.FC = () => {
     }
   }, [messages]);
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const sendMessage = async (e: React.FormEvent, gifUrl?: string) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() && !gifUrl) return;
 
     try {
-      const newMessageData = {
+      const newMessageData: Message = {
+        id: Date.now(),
         Name: userName,
-        ChatMessage: newMessage.trim(),
+        ChatMessage: gifUrl ? '' : newMessage.trim(),
+        messageType: gifUrl ? 'gif' : 'text',
+        gifUrl: gifUrl || undefined,
         created_at: new Date().toISOString()
       };
 
@@ -126,8 +138,9 @@ const TeamChatPage: React.FC = () => {
       if (error) throw error;
       
       // Update messages state immediately
-      setMessages(currentMessages => [...(currentMessages || []), { ...newMessageData, id: Date.now() }]);
+      setMessages(currentMessages => [...(currentMessages || []), newMessageData]);
       setNewMessage('');
+      setShowGifPicker(false);
       console.log('Message sent and state updated');
     } catch (err: any) {
       console.error('Error sending message:', err);
@@ -148,6 +161,10 @@ const TeamChatPage: React.FC = () => {
   const onEmojiClick = (emojiObject: any) => {
     setNewMessage((prevMessage) => prevMessage + emojiObject.emoji);
     setShowEmojiPicker(false);
+  };
+
+  const onGifClick = (gif: any) => {
+    sendMessage(new Event('submit') as any, gif.images.original.url);
   };
 
   if (error) {
@@ -238,9 +255,17 @@ const TeamChatPage: React.FC = () => {
                             ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white max-w-fit' 
                             : 'bg-white border border-gray-100'
                         }`}>
-                          <p className={`text-sm whitespace-pre-wrap break-words ${message.Name === userName ? 'text-white' : 'text-gray-700'}`}>
-                            {message.ChatMessage}
-                          </p>
+                          {message.messageType === 'gif' ? (
+                            <img 
+                              src={message.gifUrl} 
+                              alt="GIF" 
+                              className="rounded-lg max-w-[300px] max-h-[300px] object-contain"
+                            />
+                          ) : (
+                            <p className={`text-sm whitespace-pre-wrap break-words ${message.Name === userName ? 'text-white' : 'text-gray-700'}`}>
+                              {message.ChatMessage}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -253,7 +278,7 @@ const TeamChatPage: React.FC = () => {
 
           {/* Message Input */}
           <div className="border-t border-gray-100 p-4 bg-white">
-            <form onSubmit={sendMessage} className="flex flex-col">
+            <form onSubmit={(e) => sendMessage(e)} className="flex flex-col">
               <div className="relative flex items-center">
                 <input
                   type="text"
@@ -268,22 +293,71 @@ const TeamChatPage: React.FC = () => {
                     }
                   }}
                   placeholder="Type your message..."
-                  className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow text-sm"
+                  className="w-full pl-4 pr-24 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow text-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="absolute right-3 text-gray-400 hover:text-purple-500 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
+                <div className="absolute right-3 flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowGifPicker(!showGifPicker);
+                      setShowEmojiPicker(false);
+                    }}
+                    className="text-gray-400 hover:text-purple-500 transition-colors"
+                    title="Add GIF"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEmojiPicker(!showEmojiPicker);
+                      setShowGifPicker(false);
+                    }}
+                    className="text-gray-400 hover:text-purple-500 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               {showEmojiPicker && (
                 <div className="absolute bottom-20 right-4 z-10">
                   <div className="shadow-lg rounded-lg">
                     <EmojiPicker onEmojiClick={onEmojiClick} />
+                  </div>
+                </div>
+              )}
+              {showGifPicker && (
+                <div className="absolute bottom-20 right-4 z-10 bg-white rounded-lg shadow-lg p-4 w-[320px]">
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      value={gifSearchTerm}
+                      onChange={(e) => setGifSearchTerm(e.target.value)}
+                      placeholder="Search GIFs..."
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                  </div>
+                  <div className="h-[300px] overflow-y-auto bg-white rounded-lg w-[280px]">
+                    <div className="giphy-grid [&_img]:rounded-lg [&_img]:cursor-pointer [&_img]:transition-transform hover:[&_img]:scale-105">
+                      <Grid
+                        onGifClick={onGifClick}
+                        fetchGifs={(offset: number) =>
+                          gifSearchTerm
+                            ? gf.search(gifSearchTerm, { offset, limit: 10 })
+                            : gf.trending({ offset, limit: 10 })
+                        }
+                        width={280}
+                        columns={2}
+                        gutter={6}
+                        key={gifSearchTerm}
+                        noLink={true}
+                        hideAttribution={true}
+                      />
+                    </div>
                   </div>
                 </div>
               )}

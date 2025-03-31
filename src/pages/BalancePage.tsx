@@ -566,7 +566,7 @@ const BalancePage: FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+              <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
                 <button
                   type="button"
                   onClick={() => handleDelete(selectedBalance)}
@@ -580,7 +580,7 @@ const BalancePage: FC = () => {
                     setShowDeleteConfirm(false);
                     setSelectedBalance(null);
                   }}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  className="mt-3 sm:mt-0 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
                 >
                   Cancel
                 </button>
