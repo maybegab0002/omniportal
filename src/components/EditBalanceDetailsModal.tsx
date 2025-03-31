@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -29,16 +29,27 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
   onSave,
   data
 }) => {
+  const [formData, setFormData] = useState<EditBalanceDetailsData | null>(null);
+
+  useEffect(() => {
+    setFormData(data);
+  }, [data]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!data) return;
+    if (!formData) return;
 
     try {
-      await onSave(data);
+      await onSave(formData);
       onClose();
     } catch (error) {
       console.error('Error saving balance:', error);
     }
+  };
+
+  const handleInputChange = (field: keyof EditBalanceDetailsData, value: any) => {
+    if (!formData) return;
+    setFormData({ ...formData, [field]: value });
   };
 
   return (
@@ -102,12 +113,8 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                         <input
                           type="text"
                           id="name"
-                          value={data?.Name || ''}
-                          onChange={(e) => {
-                            if (data) {
-                              onSave({ ...data, Name: e.target.value });
-                            }
-                          }}
+                          value={formData?.Name || ''}
+                          onChange={(e) => handleInputChange('Name', e.target.value)}
                           className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
                           placeholder="Enter client name"
                         />
@@ -121,7 +128,7 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                           <input
                             type="text"
                             id="block"
-                            value={data?.Block || ''}
+                            value={formData?.Block || ''}
                             disabled
                             className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
                             placeholder="Enter block"
@@ -135,7 +142,7 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                           <input
                             type="text"
                             id="lot"
-                            value={data?.Lot || ''}
+                            value={formData?.Lot || ''}
                             disabled
                             className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
                             placeholder="Enter lot"
@@ -150,7 +157,7 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                         <input
                           type="text"
                           id="project"
-                          value={data?.Project || ''}
+                          value={formData?.Project || ''}
                           disabled
                           className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
                           placeholder="Enter project name"
@@ -176,12 +183,8 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                           <input
                             type="text"
                             id="monthsPaid"
-                            value={data?.["Months Paid"] || ''}
-                            onChange={(e) => {
-                              if (data) {
-                                onSave({ ...data, "Months Paid": e.target.value });
-                              }
-                            }}
+                            value={formData?.["Months Paid"] || ''}
+                            onChange={(e) => handleInputChange('Months Paid', e.target.value)}
                             className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
                             placeholder="Enter months paid"
                           />
@@ -194,12 +197,8 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                           <input
                             type="text"
                             id="MONTHSPAID"
-                            value={data?.["MONTHS PAID"] || ''}
-                            onChange={(e) => {
-                              if (data) {
-                                onSave({ ...data, "MONTHS PAID": e.target.value });
-                              }
-                            }}
+                            value={formData?.["MONTHS PAID"] || ''}
+                            onChange={(e) => handleInputChange('MONTHS PAID', e.target.value)}
                             className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
                             placeholder="Enter MONTHS PAID"
                           />
@@ -218,9 +217,9 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                             <input
                               type="number"
                               id="tcp"
-                              value={data?.TCP || ''}
-                              disabled
-                              className="block w-full rounded-md border-0 bg-gray-50 pl-7 pr-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
+                              value={formData?.TCP || ''}
+                              onChange={(e) => handleInputChange('TCP', parseFloat(e.target.value) || null)}
+                              className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
                               placeholder="0.00"
                             />
                           </div>
@@ -237,12 +236,8 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                             <input
                               type="number"
                               id="amount"
-                              value={data?.Amount || ''}
-                              onChange={(e) => {
-                                if (data) {
-                                  onSave({ ...data, Amount: parseFloat(e.target.value) || null });
-                                }
-                              }}
+                              value={formData?.Amount || ''}
+                              onChange={(e) => handleInputChange('Amount', parseFloat(e.target.value) || null)}
                               className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
                               placeholder="0.00"
                             />
@@ -258,9 +253,9 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                           <input
                             type="text"
                             id="terms"
-                            value={data?.Terms || ''}
-                            disabled
-                            className="block w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm cursor-not-allowed"
+                            value={formData?.Terms || ''}
+                            onChange={(e) => handleInputChange('Terms', e.target.value)}
+                            className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
                             placeholder="Enter terms"
                           />
                         </div>
@@ -276,12 +271,8 @@ const EditBalanceDetailsModal: React.FC<EditBalanceDetailsModalProps> = ({
                             <input
                               type="number"
                               id="remainingBalance"
-                              value={data?.["Remaining Balance"] || ''}
-                              onChange={(e) => {
-                                if (data) {
-                                  onSave({ ...data, "Remaining Balance": parseFloat(e.target.value) || null });
-                                }
-                              }}
+                              value={formData?.["Remaining Balance"] || ''}
+                              onChange={(e) => handleInputChange('Remaining Balance', parseFloat(e.target.value) || null)}
                               className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
                               placeholder="0.00"
                             />

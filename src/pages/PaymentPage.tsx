@@ -16,6 +16,8 @@ interface Payment {
   receipt_path: string;
   notified?: boolean;
   Project: string;
+  "Payment Type"?: string;
+  "MONTHS PAID"?: number;
 }
 
 // View Receipt Modal Props
@@ -107,7 +109,9 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
     "Payment Amount": 0,
     "Penalty Amount": 0,
     "Date of Payment": '',
-    Status: ''
+    Status: '',
+    "Payment Type": '',
+    "MONTHS PAID": 0,
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -119,7 +123,9 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
         "Payment Amount": payment["Payment Amount"],
         "Penalty Amount": payment["Penalty Amount"] || 0,
         "Date of Payment": payment["Date of Payment"],
-        Status: payment.Status
+        Status: payment.Status,
+        "Payment Type": payment["Payment Type"] || '',
+        "MONTHS PAID": payment["MONTHS PAID"] || 0,
       });
     }
   }, [payment]);
@@ -246,6 +252,56 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="col-span-1 group">
+                      <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                        Payment Type
+                      </label>
+                      <div className="mt-1 relative rounded-lg shadow-sm">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <select
+                          id="paymentType"
+                          value={formData["Payment Type"]}
+                          onChange={(e) => setFormData(prev => ({ ...prev, "Payment Type": e.target.value }))}
+                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 bg-white"
+                        >
+                          <option value="">Select Payment Type</option>
+                          <option value="CASH">CASH</option>
+                          <option value="SB-HRM">SB-HRM</option>
+                          <option value="SB-LWS">SB-LWS</option>
+                          <option value="SB-HHE">SB-HHE</option>
+                          <option value="CBS-LWS">CBS-LWS</option>
+                          <option value="CBS-HHE">CBS-HHE</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="col-span-1 group">
+                      <label htmlFor="monthsPaid" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                        MONTHS PAID
+                      </label>
+                      <div className="mt-1 relative rounded-lg shadow-sm">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <input
+                          type="number"
+                          id="monthsPaid"
+                          value={formData["MONTHS PAID"]}
+                          onChange={(e) => setFormData(prev => ({ ...prev, "MONTHS PAID": Number(e.target.value) }))}
+                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="col-span-1 group">
                       <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
                         Payment Amount (₱)
                       </label>
@@ -316,7 +372,7 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
                       <div className="mt-1 relative rounded-lg shadow-sm">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
                           </svg>
                         </div>
                         <select
