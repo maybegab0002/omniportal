@@ -25,6 +25,7 @@ const ReportPage: React.FC = () => {
   const [filteredRecords, setFilteredRecords] = useState<PaymentRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPaymentType, setSelectedPaymentType] = useState<string>('all');
+  const [selectedProject, setSelectedProject] = useState<string>('all');
 
   const paymentTypes = [
     'all',
@@ -36,13 +37,19 @@ const ReportPage: React.FC = () => {
     'CBS-HHE'
   ];
 
+  const projects = [
+    'all',
+    'Living Water Subdivision',
+    'Havahills Estate'
+  ];
+
   useEffect(() => {
     fetchPaymentRecords();
   }, []);
 
   useEffect(() => {
     filterRecords();
-  }, [startDate, endDate, paymentRecords, searchTerm, selectedPaymentType]);
+  }, [startDate, endDate, paymentRecords, searchTerm, selectedPaymentType, selectedProject]);
 
   const filterRecords = () => {
     let filtered = [...paymentRecords];
@@ -66,6 +73,10 @@ const ReportPage: React.FC = () => {
 
     if (selectedPaymentType !== 'all') {
       filtered = filtered.filter(record => record["Payment Type"] === selectedPaymentType);
+    }
+
+    if (selectedProject !== 'all') {
+      filtered = filtered.filter(record => record.Project === selectedProject);
     }
 
     setFilteredRecords(filtered);
@@ -149,6 +160,17 @@ const ReportPage: React.FC = () => {
               {paymentTypes.map((type) => (
                 <option key={type} value={type}>
                   {type === 'all' ? 'All Payment Types' : type.toUpperCase()}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="w-48 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+            >
+              {projects.map((project) => (
+                <option key={project} value={project}>
+                  {project === 'all' ? 'All Projects' : project}
                 </option>
               ))}
             </select>

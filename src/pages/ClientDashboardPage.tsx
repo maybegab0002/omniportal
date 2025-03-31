@@ -321,12 +321,29 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
       // If client has only one project, auto-select it
       const projects = Object.keys(projectBalances);
       if (projects.length === 1) {
-        setSelectedProject(projects[0]);
-        const firstRecord = balanceRecords[0];
-        setSelectedBlockLot(`Block ${firstRecord.Block} Lot ${firstRecord.Lot}`);
+        const singleProject = projects[0];
+        setSelectedProject(singleProject);
+        
+        // If there's only one block & lot for this project, auto-select it
+        const blockLots = projectBalances[singleProject];
+        if (blockLots.length === 1) {
+          const record = blockLots[0];
+          setSelectedBlockLot(`Block ${record.Block} Lot ${record.Lot}`);
+        }
       }
     }
   }, [selectedBlock, selectedLot, balanceRecords, projectBalances]);
+
+  // Auto-select block & lot when project changes and there's only one option
+  useEffect(() => {
+    if (selectedProject && projectBalances[selectedProject]) {
+      const blockLots = projectBalances[selectedProject];
+      if (blockLots.length === 1) {
+        const record = blockLots[0];
+        setSelectedBlockLot(`Block ${record.Block} Lot ${record.Lot}`);
+      }
+    }
+  }, [selectedProject, projectBalances]);
 
   // Clear form when modal is closed
   useEffect(() => {
@@ -460,6 +477,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
             "Date of Payment": formatToLocalDate(paymentDate)?.toISOString(),
             "Month of Payment": formatToLocalDate(paymentMonth)?.toISOString(),
             "Name": clientName,
+            "Project": selectedProject, // Add the selected project
             "Status": "Pending", // Changed to capital P to match standard status format
             created_at: new Date().toISOString()
           }

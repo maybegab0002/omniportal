@@ -10,14 +10,14 @@ interface Payment {
   Name: string;
   "Block & Lot": string;
   "Payment Amount": number;
-  "Penalty Amount"?: number;
+  "Penalty Amount"?: number | null;
   "Date of Payment": string;
   Status: string;
   receipt_path: string;
   notified?: boolean;
   Project: string;
   "Payment Type"?: string;
-  "MONTHS PAID"?: number;
+  "MONTHS PAID"?: number | null;
 }
 
 // View Receipt Modal Props
@@ -98,50 +98,62 @@ interface EditPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   payment: Payment | null;
-  onSave: (id: number, updatedPayment: Partial<Payment>) => Promise<void>;
 }
 
 // Edit Payment Modal Component
-const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, payment, onSave }) => {
+const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, payment }) => {
   const [formData, setFormData] = useState({
     Name: '',
     "Block & Lot": '',
     "Payment Amount": 0,
-    "Penalty Amount": 0,
+    "Penalty Amount": null as number | null,
     "Date of Payment": '',
-    Status: '',
     "Payment Type": '',
-    "MONTHS PAID": 0,
+    "MONTHS PAID": null as number | null,
   });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (payment) {
-      setFormData({
-        Name: payment.Name,
-        "Block & Lot": payment["Block & Lot"],
-        "Payment Amount": payment["Payment Amount"],
-        "Penalty Amount": payment["Penalty Amount"] || 0,
-        "Date of Payment": payment["Date of Payment"],
-        Status: payment.Status,
-        "Payment Type": payment["Payment Type"] || '',
-        "MONTHS PAID": payment["MONTHS PAID"] || 0,
-      });
+      // Fetch Balance data for the client
+      const fetchBalanceData = async () => {
+        try {
+          // Split the Block & Lot from payment into separate values
+          const [blockNumber, lotNumber] = payment["Block & Lot"].split(' Lot ');
+          const block = blockNumber.replace('Block ', '');
+          const lot = lotNumber;
+
+          // Query Balance table with both Name and Block/Lot match
+          const { data: balanceData, error } = await supabase
+            .from('Balance')
+            .select('*')
+            .eq('Name', payment.Name)
+            .eq('Block', block)
+            .eq('Lot', lot)
+            .single();
+
+          if (error) {
+            console.error('Error fetching balance:', error);
+            return;
+          }
+
+          setFormData({
+            Name: payment.Name,
+            "Block & Lot": payment["Block & Lot"],
+            "Payment Amount": payment["Payment Amount"],
+            "Penalty Amount": payment["Penalty Amount"] || null,
+            "Date of Payment": balanceData?.["Months Paid"] || '',
+            "Payment Type": payment["Payment Type"] || '',
+            "MONTHS PAID": balanceData?.["MONTHS PAID"] ? Number(balanceData["MONTHS PAID"]) : null,
+          });
+        } catch (err) {
+          console.error('Error in fetchBalanceData:', err);
+        }
+      };
+
+      fetchBalanceData();
     }
   }, [payment]);
-
-  const formatDateForInput = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return '';
-      }
-      return date.toISOString().split('T')[0];
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return '';
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,10 +161,75 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
     
     setIsLoading(true);
     try {
-      await onSave(payment.id, formData);
+      // Split the Block & Lot to match with Balance table
+      const [blockNumber, lotNumber] = payment["Block & Lot"].split(' Lot ');
+      const block = blockNumber.replace('Block ', '');
+      const lot = lotNumber;
+
+      // First, get the current Balance record
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('Balance')
+        .select('*')
+        .eq('Name', payment.Name)
+        .eq('Block', block)
+        .eq('Lot', lot)
+        .single();
+
+      if (balanceError) throw balanceError;
+
+      // Calculate new remaining balance
+      const currentRemainingBalance = balanceData["Remaining Balance"] || 0;
+      const newRemainingBalance = currentRemainingBalance - formData["Payment Amount"];
+
+      // Update the Balance table
+      const { error: updateBalanceError } = await supabase
+        .from('Balance')
+        .update({
+          "Amount": (balanceData["Amount"] || 0) + formData["Payment Amount"],
+          "Remaining Balance": newRemainingBalance,
+          "Months Paid": formData["Date of Payment"],
+          "MONTHS PAID": formData["MONTHS PAID"]
+        })
+        .eq('id', balanceData.id);
+
+      if (updateBalanceError) throw updateBalanceError;
+
+      // Create a new Payment Record
+      const { error: createPaymentRecordError } = await supabase
+        .from('Payment Record')
+        .insert({
+          "Project": balanceData["Project"],
+          "Block": block,
+          "Lot": lot,
+          "Name": payment.Name,
+          "Amount": formData["Payment Amount"],
+          "Penalty": formData["Penalty Amount"],
+          "Payment Type": formData["Payment Type"],
+          "Date": new Date().toISOString()
+        });
+
+      if (createPaymentRecordError) throw createPaymentRecordError;
+
+      // Update the Payment table
+      const { error: updatePaymentError } = await supabase
+        .from('Payment')
+        .update({
+          "Project": balanceData["Project"],
+          "Payment Type": formData["Payment Type"],
+          "Payment Amount": formData["Payment Amount"],
+          "Penalty Amount": formData["Penalty Amount"],
+          "Date of Payment": formData["Date of Payment"],
+          "MONTHS PAID": formData["MONTHS PAID"]
+        })
+        .eq('id', payment.id);
+
+      if (updatePaymentError) throw updatePaymentError;
+
+      toast.success('Payment confirmed and recorded successfully!');
       onClose();
-    } catch (error) {
-      console.error('Error saving payment:', error);
+    } catch (error: any) {
+      console.error('Error confirming payment:', error);
+      toast.error('Failed to confirm payment: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -185,233 +262,213 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-gradient-to-br from-white to-gray-50 text-left align-middle shadow-2xl transition-all border border-gray-100">
-                <div className="border-b border-gray-200/80 bg-white/50 backdrop-blur-sm">
-                  <div className="px-6 py-4 flex items-center justify-between">
-                    <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-gray-900 flex items-center space-x-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                        <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
-                      </svg>
-                      <span>Edit Payment Details</span>
-                    </Dialog.Title>
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-gray-500 hover:bg-gray-100/50 p-1 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      onClick={onClose}
-                    >
-                      <span className="sr-only">Close</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="col-span-1 group">
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        Client Name
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <input
-                          type="text"
-                          id="name"
-                          value={formData.Name}
-                          readOnly
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm bg-gray-50/50 border border-gray-200 rounded-lg focus:ring-0 focus:border-gray-200 cursor-not-allowed shadow-inner group-hover:bg-gray-50 transition-all duration-200"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-span-1 group">
-                      <label htmlFor="blockLot" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        Block & Lot
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <input
-                          type="text"
-                          id="blockLot"
-                          value={formData["Block & Lot"]}
-                          readOnly
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm bg-gray-50/50 border border-gray-200 rounded-lg focus:ring-0 focus:border-gray-200 cursor-not-allowed shadow-inner group-hover:bg-gray-50 transition-all duration-200"
-                        />
-                      </div>
+                <form onSubmit={handleSubmit}>
+                  <div className="border-b border-gray-200/80 bg-white/50 backdrop-blur-sm">
+                    <div className="px-6 py-4 flex items-center justify-between">
+                      <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-gray-900 flex items-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                          <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                        </svg>
+                        <span>Confirm Payment</span>
+                      </Dialog.Title>
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-gray-500 hover:bg-gray-100/50 p-1 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onClick={onClose}
+                      >
+                        <span className="sr-only">Close</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="col-span-1 group">
-                      <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        Payment Type
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
-                          </svg>
+                  <div className="px-6 py-4 space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="col-span-1 group">
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                          Client Name
+                        </label>
+                        <div className="mt-1 relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <input
+                            type="text"
+                            id="name"
+                            value={formData.Name}
+                            readOnly
+                            className="block w-full pl-10 pr-3 py-2.5 text-sm bg-gray-50/50 border border-gray-200 rounded-lg focus:ring-0 focus:border-gray-200 cursor-not-allowed shadow-inner group-hover:bg-gray-50 transition-all duration-200"
+                          />
                         </div>
-                        <select
-                          id="paymentType"
-                          value={formData["Payment Type"]}
-                          onChange={(e) => setFormData(prev => ({ ...prev, "Payment Type": e.target.value }))}
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 bg-white"
-                        >
-                          <option value="">Select Payment Type</option>
-                          <option value="CASH">CASH</option>
-                          <option value="SB-HRM">SB-HRM</option>
-                          <option value="SB-LWS">SB-LWS</option>
-                          <option value="SB-HHE">SB-HHE</option>
-                          <option value="CBS-LWS">CBS-LWS</option>
-                          <option value="CBS-HHE">CBS-HHE</option>
-                        </select>
+                      </div>
+
+                      <div className="col-span-1 group">
+                        <label htmlFor="blockLot" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                          Block & Lot
+                        </label>
+                        <div className="mt-1 relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <input
+                            type="text"
+                            id="blockLot"
+                            value={formData["Block & Lot"]}
+                            readOnly
+                            className="block w-full pl-10 pr-3 py-2.5 text-sm bg-gray-50/50 border border-gray-200 rounded-lg focus:ring-0 focus:border-gray-200 cursor-not-allowed shadow-inner group-hover:bg-gray-50 transition-all duration-200"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="col-span-1 group">
-                      <label htmlFor="monthsPaid" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        MONTHS PAID
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
-                          </svg>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="col-span-1 group">
+                        <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                          Payment Type
+                        </label>
+                        <div className="mt-1 relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <select
+                            id="paymentType"
+                            value={formData["Payment Type"]}
+                            onChange={(e) => setFormData(prev => ({ ...prev, "Payment Type": e.target.value }))}
+                            className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 bg-white"
+                          >
+                            <option value="">Select Payment Type</option>
+                            <option value="CASH">CASH</option>
+                            <option value="SB-HRM">SB-HRM</option>
+                            <option value="SB-LWS">SB-LWS</option>
+                            <option value="SB-HHE">SB-HHE</option>
+                            <option value="CBS-LWS">CBS-LWS</option>
+                            <option value="CBS-HHE">CBS-HHE</option>
+                          </select>
                         </div>
-                        <input
-                          type="number"
-                          id="monthsPaid"
-                          value={formData["MONTHS PAID"]}
-                          onChange={(e) => setFormData(prev => ({ ...prev, "MONTHS PAID": Number(e.target.value) }))}
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                          min="0"
-                        />
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="col-span-1 group">
-                      <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        Payment Amount (₱)
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <span className="text-blue-500 font-medium">₱</span>
+                      <div className="col-span-1 group">
+                        <label htmlFor="monthsPaid" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                          MONTHS PAID
+                        </label>
+                        <div className="mt-1 relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <input
+                            type="number"
+                            id="monthsPaid"
+                            value={formData["MONTHS PAID"] ?? ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, "MONTHS PAID": e.target.value ? Number(e.target.value) : null }))}
+                            className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min="0"
+                          />
                         </div>
-                        <input
-                          type="number"
-                          id="paymentAmount"
-                          value={formData["Payment Amount"]}
-                          onChange={(e) => setFormData(prev => ({ ...prev, "Payment Amount": Number(e.target.value) }))}
-                          className="block w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-span-1 group">
-                      <label htmlFor="penaltyAmount" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        Penalty Amount (₱)
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <span className="text-red-500 font-medium">₱</span>
-                        </div>
-                        <input
-                          type="number"
-                          id="penaltyAmount"
-                          value={formData["Penalty Amount"]}
-                          onChange={(e) => setFormData(prev => ({ ...prev, "Penalty Amount": Number(e.target.value) }))}
-                          className="block w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="col-span-1 group">
-                      <label htmlFor="dateOfPayment" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        Date of Payment
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <input
-                          type="date"
-                          id="dateOfPayment"
-                          value={formatDateForInput(formData["Date of Payment"])}
-                          onChange={(e) => setFormData(prev => ({ ...prev, "Date of Payment": e.target.value }))}
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                        />
                       </div>
                     </div>
 
-                    <div className="col-span-1 group">
-                      <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
-                        Status
-                      </label>
-                      <div className="mt-1 relative rounded-lg shadow-sm">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h5a1 1 0 100-2H7z" clipRule="evenodd" />
-                          </svg>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="col-span-1 group">
+                        <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                          Payment Amount (₱)
+                        </label>
+                        <div className="mt-1 relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <span className="text-blue-500 font-medium">₱</span>
+                          </div>
+                          <input
+                            type="number"
+                            id="paymentAmount"
+                            value={formData["Payment Amount"]}
+                            onChange={(e) => setFormData(prev => ({ ...prev, "Payment Amount": Number(e.target.value) }))}
+                            className="block w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
                         </div>
-                        <select
-                          id="status"
-                          value={formData.Status}
-                          onChange={(e) => setFormData(prev => ({ ...prev, Status: e.target.value }))}
-                          className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 bg-white"
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="Approved">Approved</option>
-                          <option value="Rejected">Rejected</option>
-                        </select>
+                      </div>
+
+                      <div className="col-span-1 group">
+                        <label htmlFor="penaltyAmount" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                          Penalty Amount (₱)
+                        </label>
+                        <div className="mt-1 relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <span className="text-red-500 font-medium">₱</span>
+                          </div>
+                          <input
+                            type="number"
+                            id="penaltyAmount"
+                            value={formData["Penalty Amount"] ?? ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, "Penalty Amount": e.target.value ? Number(e.target.value) : null }))}
+                            className="block w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-8 flex justify-end space-x-4">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm hover:shadow"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-500 border border-transparent rounded-lg hover:from-blue-700 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
-                    >
-                      {isLoading ? (
-                        <span className="flex items-center">
-                          <svg className="w-4 h-4 mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Saving...
-                        </span>
-                      ) : 'Save Changes'}
-                    </button>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="col-span-1 group">
+                        <label htmlFor="dateOfPayment" className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-blue-600 transition-colors duration-200">
+                          Date of Payment
+                        </label>
+                        <div className="mt-1 relative rounded-lg shadow-sm">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-200" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <input
+                            type="text"
+                            id="dateOfPayment"
+                            value={formData["Date of Payment"]}
+                            onChange={(e) => setFormData(prev => ({ ...prev, "Date of Payment": e.target.value }))}
+                            placeholder="e.g. November 2023 - December 2024"
+                            className="block w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-end space-x-4">
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 shadow-sm hover:shadow"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-green-500 border border-transparent rounded-lg hover:from-green-700 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                      >
+                        {isLoading ? (
+                          <span className="flex items-center">
+                            <svg className="w-4 h-4 mr-2 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Confirming...
+                          </span>
+                        ) : 'Confirm'}
+                      </button>
+                    </div>
                   </div>
                 </form>
               </Dialog.Panel>
@@ -426,7 +483,6 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
 const PaymentPage: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
-  const [confirmingPayment, setConfirmingPayment] = useState<number | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
@@ -494,33 +550,6 @@ const PaymentPage: React.FC = () => {
     }
   };
 
-  const handleConfirmPayment = async (payment: Payment) => {
-    if (confirmingPayment) return; // Prevent multiple confirmations at once
-    
-    setConfirmingPayment(payment.id);
-    try {
-      const { error } = await supabase
-        .from('Payment')
-        .update({ Status: 'Approved' })
-        .eq('id', payment.id);
-
-      if (error) throw error;
-
-      // Update the local state
-      setPayments(payments.map(p => 
-        p.id === payment.id ? { ...p, Status: 'Approved' } : p
-      ));
-      
-      await refreshPendingCount(); // Refresh the pending count after updating payment status
-      toast.success('Payment confirmed successfully');
-    } catch (error) {
-      console.error('Error confirming payment:', error);
-      toast.error('Failed to confirm payment');
-    } finally {
-      setConfirmingPayment(null);
-    }
-  };
-
   const handleViewReceipt = async (payment: Payment) => {
     if (!payment?.Name) {
       toast.error('Payment information not found');
@@ -572,26 +601,20 @@ const PaymentPage: React.FC = () => {
     }
   };
 
-  const handleSavePayment = async (id: number, updatedPayment: Partial<Payment>) => {
+  const handleConfirmPayment = async (payment: Payment) => {
     try {
       const { error } = await supabase
         .from('Payment')
-        .update(updatedPayment)
-        .eq('id', id);
+        .update({ Status: 'Approved' })
+        .eq('id', payment.id);
 
       if (error) throw error;
-
-      // Update local state
-      setPayments(payments.map(p => 
-        p.id === id ? { ...p, ...updatedPayment } : p
-      ));
       
-      await refreshPendingCount(); // Refresh the pending count after updating payment status
-      toast.success('Payment details updated successfully');
+      toast.success('Payment confirmed successfully');
+      await fetchAllPayments(); // Refresh the payments list
     } catch (error) {
-      console.error('Error updating payment:', error);
-      toast.error('Failed to update payment details');
-      throw error;
+      console.error('Error confirming payment:', error);
+      toast.error('Failed to confirm payment');
     }
   };
 
@@ -660,6 +683,7 @@ const PaymentPage: React.FC = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Name</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Project</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Block & Lot</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Amount</th>
@@ -674,6 +698,9 @@ const PaymentPage: React.FC = () => {
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(payment["Date of Payment"]).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {payment.Name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {payment.Project}
@@ -692,7 +719,7 @@ const PaymentPage: React.FC = () => {
                             <button
                               onClick={() => handleViewReceipt(payment)}
                               disabled={isLoadingReceipt}
-                              className={`text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center space-x-2 ${
+                              className={`text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-2 ${
                                 isLoadingReceipt ? 'opacity-50 cursor-not-allowed' : ''
                               }`}
                             >
@@ -731,8 +758,7 @@ const PaymentPage: React.FC = () => {
                           {payment.Status === "Pending" && (
                             <button
                               onClick={() => handleConfirmPayment(payment)}
-                              disabled={confirmingPayment === payment.id}
-                              className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200"
                             >
                               <span className="flex items-center space-x-1">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -791,7 +817,6 @@ const PaymentPage: React.FC = () => {
             setEditingPayment(null);
           }}
           payment={editingPayment}
-          onSave={handleSavePayment}
         />
       </div>
     </div>
