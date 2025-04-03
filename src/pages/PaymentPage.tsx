@@ -14,6 +14,7 @@ interface Payment {
   "Date of Payment": string;
   Status: string;
   receipt_path: string;
+  ar_receipt_path?: string;
   notified?: boolean;
   Project: string;
   "Payment Type"?: string;
@@ -492,6 +493,93 @@ const PaymentPage: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const { refreshPendingCount } = usePayment(); // Use the refreshPendingCount from context
 
+  const handleUploadReceipt = async (payment: Payment, file: File, isAR: boolean = false) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${payment.Name.replace(/\s+/g, '_')}_${isAR ? 'AR_' : ''}${Date.now()}.${fileExt}`;
+      const filePath = `${payment.Project}/${payment.Name}/${fileName}`;
+
+      // Upload the file to the appropriate bucket
+      const { error: uploadError } = await supabase.storage
+        .from(isAR ? 'ar-receipt' : 'Payment Receipt')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Update the payment record with the receipt path
+      const { error: updateError } = await supabase
+        .from('Payment')
+        .update({ 
+          [isAR ? 'ar_receipt_path' : 'receipt_path']: filePath 
+        })
+        .eq('id', payment.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(`${isAR ? 'AR' : ''} Receipt uploaded successfully`);
+      await fetchAllPayments(); // Refresh the payments list
+    } catch (error) {
+      console.error('Error uploading receipt:', error);
+      toast.error('Failed to upload receipt');
+    }
+  };
+
+  const handleViewReceipt = async (payment: Payment, isAR: boolean = false) => {
+    if (!payment?.Name) {
+      toast.error('Payment information not found');
+      return;
+    }
+
+    setIsLoadingReceipt(true);
+    setIsReceiptModalOpen(true);
+    setReceiptUrl(null);
+
+    try {
+      // Get receipt using the path that includes client folder
+      const receiptPath = isAR ? payment.ar_receipt_path : payment.receipt_path;
+      if (!receiptPath) {
+        toast.error('Receipt not found');
+        return;
+      }
+
+      console.log('Fetching receipt:', receiptPath);
+      
+      const { data, error } = await supabase.storage
+        .from(isAR ? 'ar-receipt' : 'Payment Receipt')
+        .download(receiptPath);
+
+      if (error) {
+        console.error('Error fetching receipt:', error);
+        toast.error('Failed to load receipt');
+        return;
+      }
+
+      if (!data) {
+        console.error('Receipt not found');
+        toast.error('Receipt not found');
+        return;
+      }
+
+      // Create a URL for the downloaded file
+      const url = URL.createObjectURL(data);
+      console.log('Created object URL for receipt:', url);
+      setReceiptUrl(url);
+      
+      // Clean up the URL when the modal is closed
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        setReceiptUrl(null);
+      };
+
+      return cleanup;
+    } catch (err) {
+      console.error('Error viewing receipt:', err);
+      toast.error('Failed to view receipt. Please try again later.');
+    } finally {
+      setIsLoadingReceipt(false);
+    }
+  };
+
   useEffect(() => {
     fetchAllPayments();
     setupRealtimeSubscription();
@@ -547,57 +635,6 @@ const PaymentPage: React.FC = () => {
       toast.error('Failed to load payments');
     } finally {
       setIsLoadingPayments(false);
-    }
-  };
-
-  const handleViewReceipt = async (payment: Payment) => {
-    if (!payment?.Name) {
-      toast.error('Payment information not found');
-      return;
-    }
-
-    setIsLoadingReceipt(true);
-    setIsReceiptModalOpen(true);
-    setReceiptUrl(null);
-
-    try {
-      // Get receipt using the path that includes client folder
-      const receiptPath = payment.receipt_path;
-      console.log('Fetching receipt:', receiptPath);
-      
-      const { data, error } = await supabase.storage
-        .from('Payment Receipt')
-        .download(receiptPath);
-
-      if (error) {
-        console.error('Error fetching receipt:', error);
-        toast.error('Failed to load receipt');
-        return;
-      }
-
-      if (!data) {
-        console.error('Receipt not found');
-        toast.error('Receipt not found');
-        return;
-      }
-
-      // Create a URL for the downloaded file
-      const url = URL.createObjectURL(data);
-      console.log('Created object URL for receipt:', url);
-      setReceiptUrl(url);
-      
-      // Clean up the URL when the modal is closed
-      const cleanup = () => {
-        URL.revokeObjectURL(url);
-        setReceiptUrl(null);
-      };
-
-      return cleanup;
-    } catch (err) {
-      console.error('Error viewing receipt:', err);
-      toast.error('Failed to view receipt. Please try again later.');
-    } finally {
-      setIsLoadingReceipt(false);
     }
   };
 
@@ -682,15 +719,16 @@ const PaymentPage: React.FC = () => {
                 <table className="w-full table-auto divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Project</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Block & Lot</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Penalty Amount</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Receipt</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[13%]">Action</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Project</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Block & Lot</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Penalty Amount</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Client Receipt</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">AR Receipt</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Action</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -736,8 +774,82 @@ const PaymentPage: React.FC = () => {
                               )}
                               <span>{isLoadingReceipt ? 'Loading...' : 'View Receipt'}</span>
                             </button>
+                          ) : payment.Status === "Approved" ? (
+                            <>
+                              <input
+                                type="file"
+                                id={`receipt-upload-${payment.id}`}
+                                className="hidden"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleUploadReceipt(payment, file, false);
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => document.getElementById(`receipt-upload-${payment.id}`)?.click()}
+                                className="text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-2"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                <span>Upload Receipt</span>
+                              </button>
+                            </>
                           ) : (
                             <span className="text-gray-400">No receipt</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                          {payment.ar_receipt_path ? (
+                            <button
+                              onClick={() => handleViewReceipt(payment, true)}
+                              disabled={isLoadingReceipt}
+                              className={`text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-2 ${
+                                isLoadingReceipt ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              {isLoadingReceipt ? (
+                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              )}
+                              <span>{isLoadingReceipt ? 'Loading...' : 'View AR'}</span>
+                            </button>
+                          ) : payment.Status === "Approved" ? (
+                            <>
+                              <input
+                                type="file"
+                                id={`ar-receipt-upload-${payment.id}`}
+                                className="hidden"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleUploadReceipt(payment, file, true);
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => document.getElementById(`ar-receipt-upload-${payment.id}`)?.click()}
+                                className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-2"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                <span>Upload AR</span>
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-gray-400">No AR receipt</span>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">

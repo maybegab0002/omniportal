@@ -27,6 +27,16 @@ export interface EditBalanceData {
   "Payment Type"?: string;
 }
 
+interface PaymentRecord {
+  "Name": string;
+  "Amount": number;
+  "Project": string;
+  "Block": string;
+  "Lot": string;
+  "Payment Type": string;
+  "Penalty"?: number;
+}
+
 const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, data }) => {
   const [formData, setFormData] = React.useState<EditBalanceData | null>(data);
   const [loading, setLoading] = React.useState(false);
@@ -36,7 +46,7 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
   const [paymentType, setPaymentType] = React.useState<string>('cash');
 
   const paymentTypes = [
-    'cash',
+    'CASH',
     'SB-HRM',
     'SB-LWS',
     'SB-HHE',
@@ -63,40 +73,46 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData) return;
+    if (!formData || !data) return;
 
     try {
       setLoading(true);
-      // Add the new payment to the existing Amount
-      const currentAmount = data?.Amount || 0;
+      // Get the current values
+      const currentAmount = data.Amount || 0;
+      const currentMonthsPaid = parseInt(data['MONTHS PAID'] || '0');
       const newPaymentAmount = formData['Amount'] ? parseFloat(formData['Amount'].toString()) : 0;
-      const totalAmount = currentAmount + newPaymentAmount;
+      const currentRemainingBalance = data["Remaining Balance"] || 0;
+      
+      // Calculate new values
+      const newTotalAmount = currentAmount + newPaymentAmount;
+      const newRemainingBalance = currentRemainingBalance - newPaymentAmount;
+      const newMonthsPaid = currentMonthsPaid + 1; // Increment months paid by 1
 
       // Update the Balance table with all the data
       const updatedData = {
-        ...formData,
-        'Remaining Balance': currentRemainingBalance,
-        'Amount': totalAmount,
-        'Months Paid': formData['Months Paid'] || data?.['Months Paid'] || '',
-        'MONTHS PAID': formData['MONTHS PAID'] || data?.['MONTHS PAID'] || ''
+        ...data, // Keep all existing data
+        ...formData, // Override with any changed fields
+        'Remaining Balance': newRemainingBalance,
+        'Amount': newTotalAmount,
+        'MONTHS PAID': newMonthsPaid.toString()
       };
 
       // First update the Balance table
       await onSave(updatedData);
 
       // Then save basic payment info to Payment Record table
-      const paymentRecord: any = {
-        Name: formData.Name,
-        Amount: newPaymentAmount,
-        Project: formData.Project,
-        Block: formData.Block,
-        Lot: formData.Lot,
+      const paymentRecord: PaymentRecord = {
+        "Name": data.Name,
+        "Amount": newPaymentAmount,
+        "Project": data.Project,
+        "Block": data.Block,
+        "Lot": data.Lot,
         "Payment Type": paymentType
       };
 
       // Only add penalty if it has a value
       if (penalty !== null && penalty > 0) {
-        paymentRecord.Penalty = penalty;
+        paymentRecord["Penalty"] = penalty;
       }
 
       const { error: paymentError } = await supabase
@@ -118,19 +134,30 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
 
   const handleInputChange = (field: string, value: string) => {
     if (field === 'Amount') {
-      if (value === '') return;
+      // Allow empty value to clear the field
+      if (value === '') {
+        setFormData(prev => prev ? {
+          ...prev,
+          [field]: null
+        } : null);
+        setCurrentRemainingBalance(formData?.TCP || 0);
+        setTotalAmount(data?.Amount || 0);
+        return;
+      }
+      
       const numValue = parseFloat(value);
-      if (isNaN(numValue) || numValue <= 0) return;
+      if (isNaN(numValue) || numValue < 0) return;
       
       setFormData(prev => prev ? {
         ...prev,
         [field]: numValue
       } : null);
 
-      // Calculate new remaining balance
+      // Calculate new remaining balance and update total amount
       if (formData?.TCP) {
-        const newBalance = formData.TCP - (totalAmount || 0) - numValue;
+        const newBalance = formData.TCP - (data?.Amount || 0) - numValue;
         setCurrentRemainingBalance(newBalance);
+        setTotalAmount((data?.Amount || 0) + numValue);
       }
     } else if (field === 'Penalty') {
       if (value === '') {

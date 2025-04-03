@@ -26,6 +26,7 @@ interface Balance {
   TCP: number | null;
   Amount: number | null;
   'Months Paid': string | null;
+  'MONTHS PAID': number | null;
   'Remaining Balance': number | null;
   Project: string;
   Terms: string;
@@ -1172,7 +1173,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
   const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
-  const handleViewReceipt = async (payment: any) => {
+  const handleViewReceipt = async (payment: any, isAR: boolean = false) => {
     if (!payment || !clientName) {
       toast.error('Payment information not found');
       return;
@@ -1184,11 +1185,16 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
 
     try {
       // Get receipt using the path that includes client folder
-      const receiptPath = payment.receipt_path;
+      const receiptPath = isAR ? payment.ar_receipt_path : payment.receipt_path;
+      if (!receiptPath) {
+        toast.error('Receipt not found');
+        return;
+      }
+      
       console.log('Fetching receipt:', receiptPath);
       
       const { data, error } = await supabase.storage
-        .from('Payment Receipt')
+        .from(isAR ? 'ar-receipt' : 'Payment Receipt')
         .download(receiptPath);
 
       if (error) {
@@ -1271,6 +1277,7 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month of Payment</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AR Receipt</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -1303,13 +1310,26 @@ const ViewPaymentModal: React.FC<ViewPaymentModalProps> = ({ isOpen, onClose, pa
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <button 
-                                  onClick={() => handleViewReceipt(payment)}
-                                  className="text-blue-600 hover:text-blue-800 focus:outline-none flex items-center"
-                                >
-                                  <EyeIcon className="h-4 w-4 mr-1" />
-                                  View Receipt
-                                </button>
+                                {payment.receipt_path && (
+                                  <button 
+                                    onClick={() => handleViewReceipt(payment)}
+                                    className="text-blue-600 hover:text-blue-800 focus:outline-none flex items-center"
+                                  >
+                                    <EyeIcon className="h-4 w-4 mr-1" />
+                                    View Receipt
+                                  </button>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                {payment.ar_receipt_path && (
+                                  <button 
+                                    onClick={() => handleViewReceipt(payment, true)}
+                                    className="text-green-600 hover:text-green-800 focus:outline-none flex items-center"
+                                  >
+                                    <EyeIcon className="h-4 w-4 mr-1" />
+                                    View AR
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -2038,7 +2058,7 @@ const ClientDashboardPage: React.FC = () => {
                         <CurrencyDollarIcon className="h-6 w-6 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-blue-100 mb-1">Monthly Amount</p>
+                        <p className="text-sm font-medium text-blue-100 mb-1">Total Amount Paid</p>
                         <p className="text-xl font-bold text-white truncate">₱{selectedBalanceData?.Amount?.toLocaleString() || '0'}</p>
                       </div>
                     </div>
@@ -2064,8 +2084,8 @@ const ClientDashboardPage: React.FC = () => {
                         <CalendarIcon className="h-6 w-6 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-blue-100 mb-1">Months Paid</p>
-                        <p className="text-xl font-bold text-white truncate">{selectedBalanceData?.["Months Paid"] || '0'}</p>
+                        <p className="text-sm font-medium text-blue-100 mb-1">MONTHS PAID</p>
+                        <p className="text-xl font-bold text-white truncate">{selectedBalanceData?.["MONTHS PAID"] || '0'}</p>
                       </div>
                     </div>
                   </div>
@@ -2102,7 +2122,7 @@ const ClientDashboardPage: React.FC = () => {
                         <p className="text-base font-medium text-white mt-1">{selectedBalanceData.Lot}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-blue-100">Monthly Amount</p>
+                        <p className="text-sm text-blue-100">Total Amount Paid</p>
                         <p className="text-base font-medium text-white mt-1">₱{selectedBalanceData?.Amount?.toLocaleString() || '0'}</p>
                       </div>
                       <div>

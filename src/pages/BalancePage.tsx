@@ -90,39 +90,7 @@ const BalancePage: FC = () => {
 
   const handleSave = async (updatedData: EditBalanceData) => {
     try {
-      // First, get the current record to calculate the new months paid
-      const { data: currentData, error: fetchError } = await supabase
-        .from('Balance')
-        .select('*')
-        .eq('id', updatedData.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Only increment if a new payment is being added
-      const isNewPayment = updatedData["Remaining Balance"] !== currentData["Remaining Balance"];
-      const currentMonthsPaid = parseInt(currentData['MONTHS PAID'] || '0');
-      const newMonthsPaidCount = isNewPayment ? currentMonthsPaid + 1 : currentMonthsPaid;
-
-      // If there's a new payment, save it to Payment Record
-      if (isNewPayment) {
-        const paymentAmount = (currentData["Remaining Balance"] || 0) - (updatedData["Remaining Balance"] || 0);
-        const { error: paymentError } = await supabase
-          .from('Payment Record')
-          .insert([{
-            "Name": updatedData["Name"],
-            "Block": updatedData["Block"],
-            "Lot": updatedData["Lot"],
-            "Project": updatedData["Project"],
-            "Amount": paymentAmount,
-            "Date": new Date().toISOString(),
-            "Payment Type": "Monthly Payment"
-          }]);
-
-        if (paymentError) throw paymentError;
-      }
-
-      // Update the Balance record
+      // Update the Balance record with the new data
       const { error } = await supabase
         .from('Balance')
         .update({
@@ -133,8 +101,8 @@ const BalancePage: FC = () => {
           "Remaining Balance": updatedData["Remaining Balance"],
           "Amount": updatedData["Amount"],
           "TCP": updatedData["TCP"],
-          "Months Paid": updatedData["Months Paid"], // This is the string range (e.g., "March 22 - February 25")
-          "MONTHS PAID": updatedData["MONTHS PAID"] || newMonthsPaidCount.toString(), // Use provided value or calculated one
+          "Months Paid": updatedData["Months Paid"],
+          "MONTHS PAID": updatedData["MONTHS PAID"],
           "Terms": updatedData["Terms"]
         })
         .eq('id', updatedData.id);
