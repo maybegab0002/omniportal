@@ -135,17 +135,14 @@ const BalancePage: FC = () => {
 
       if (error) throw error;
 
-      // Update local state
-      setBalances(prevBalances =>
-        prevBalances.map(balance =>
-          balance.id === updatedData.id ? { ...balance, ...updatedData } : balance
-        )
-      );
+      // Fetch fresh data from the database
+      await fetchBalances();
 
       setIsEditDetailsModalOpen(false);
       setSelectedBalance(null);
     } catch (error: any) {
       console.error('Error updating balance:', error.message);
+      alert('Failed to update balance: ' + error.message);
     }
   };
 
