@@ -7,8 +7,8 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 interface Client {
   id: number;
   Name: string;
-  Email?: string;
-  auth_id?: string;
+  Email?: string | null;
+  auth_id?: string | null;
   is_active?: boolean;
 }
 
@@ -524,33 +524,37 @@ const ClientsPage: React.FC = () => {
     if (!clientToDelete) return;
 
     try {
-      // First delete the auth user
-      if (clientToDelete.auth_id) {
-        const { error: authError } = await supabase.auth.admin.deleteUser(
-          clientToDelete.auth_id
-        );
-
-        if (authError) throw authError;
-      }
-
-      // Then delete the client record
-      const { error: deleteError } = await supabase
+      // Update the client record to remove auth_id and Email
+      const { error: updateError } = await supabase
         .from('Clients')
-        .delete()
+        .update({
+          auth_id: null,
+          Email: null
+        })
         .eq('id', clientToDelete.id);
 
-      if (deleteError) throw deleteError;
+      if (updateError) {
+        throw updateError;
+      }
 
       // Update local state
       setClients(prevClients =>
-        prevClients.filter(c => c.id !== clientToDelete.id)
+        prevClients.map(c => {
+          if (c.id === clientToDelete.id) {
+            return { ...c, auth_id: null, Email: null };
+          }
+          return c;
+        })
       );
 
       setShowDeleteConfirm(false);
       setClientToDelete(null);
+
+      // Show success message
+      alert('Client account access removed successfully');
     } catch (error: any) {
-      console.error('Error deleting client:', error);
-      alert('Failed to delete client account');
+      console.error('Error removing client account access:', error);
+      alert('Failed to remove client account access. Make sure you have admin privileges.');
     }
   };
 
