@@ -116,43 +116,15 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
 
   useEffect(() => {
     if (payment) {
-      // Fetch Balance data for the client
-      const fetchBalanceData = async () => {
-        try {
-          // Split the Block & Lot from payment into separate values
-          const [blockNumber, lotNumber] = payment["Block & Lot"].split(' Lot ');
-          const block = blockNumber.replace('Block ', '');
-          const lot = lotNumber;
-
-          // Query Balance table with both Name and Block/Lot match
-          const { data: balanceData, error } = await supabase
-            .from('Balance')
-            .select('*')
-            .eq('Name', payment.Name)
-            .eq('Block', block)
-            .eq('Lot', lot)
-            .single();
-
-          if (error) {
-            console.error('Error fetching balance:', error);
-            return;
-          }
-
-          setFormData({
-            Name: payment.Name,
-            "Block & Lot": payment["Block & Lot"],
-            "Payment Amount": payment["Payment Amount"],
-            "Penalty Amount": payment["Penalty Amount"] || null,
-            "Date of Payment": balanceData?.["Months Paid"] || '',
-            "Payment Type": payment["Payment Type"] || '',
-            "MONTHS PAID": balanceData?.["MONTHS PAID"] ? Number(balanceData["MONTHS PAID"]) : null,
-          });
-        } catch (err) {
-          console.error('Error in fetchBalanceData:', err);
-        }
-      };
-
-      fetchBalanceData();
+      setFormData({
+        Name: payment.Name,
+        "Block & Lot": payment["Block & Lot"],
+        "Payment Amount": payment["Payment Amount"],
+        "Penalty Amount": payment["Penalty Amount"] || null,
+        "Date of Payment": payment["Date of Payment"] || '',
+        "Payment Type": payment["Payment Type"] || '',
+        "MONTHS PAID": payment["MONTHS PAID"] ? Number(payment["MONTHS PAID"]) : null,
+      });
     }
   }, [payment]);
 
@@ -167,46 +139,21 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
       const block = blockNumber.replace('Block ', '');
       const lot = lotNumber;
 
-      // First, get the current Balance record
-      const { data: balanceData, error: balanceError } = await supabase
-        .from('Balance')
-        .select('*')
-        .eq('Name', payment.Name)
-        .eq('Block', block)
-        .eq('Lot', lot)
-        .single();
-
-      if (balanceError) throw balanceError;
-
-      // Calculate new remaining balance
-      const currentRemainingBalance = balanceData["Remaining Balance"] || 0;
-      const newRemainingBalance = currentRemainingBalance - formData["Payment Amount"];
-
-      // Update the Balance table
-      const { error: updateBalanceError } = await supabase
-        .from('Balance')
-        .update({
-          "Amount": (balanceData["Amount"] || 0) + formData["Payment Amount"],
-          "Remaining Balance": newRemainingBalance,
-          "Months Paid": formData["Date of Payment"],
-          "MONTHS PAID": formData["MONTHS PAID"]
-        })
-        .eq('id', balanceData.id);
-
-      if (updateBalanceError) throw updateBalanceError;
+      // Format the current date as YYYY-MM-DD
+      const currentDate = new Date().toISOString().split('T')[0];
 
       // Create a new Payment Record
       const { error: createPaymentRecordError } = await supabase
         .from('Payment Record')
         .insert({
-          "Project": balanceData["Project"],
+          "Project": payment.Project,
           "Block": block,
           "Lot": lot,
           "Name": payment.Name,
           "Amount": formData["Payment Amount"],
           "Penalty": formData["Penalty Amount"],
           "Payment Type": formData["Payment Type"],
-          "Date": new Date().toISOString()
+          "Date": currentDate
         });
 
       if (createPaymentRecordError) throw createPaymentRecordError;
@@ -215,11 +162,11 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
       const { error: updatePaymentError } = await supabase
         .from('Payment')
         .update({
-          "Project": balanceData["Project"],
+          "Project": payment.Project,
           "Payment Type": formData["Payment Type"],
           "Payment Amount": formData["Payment Amount"],
           "Penalty Amount": formData["Penalty Amount"],
-          "Date of Payment": formData["Date of Payment"],
+          "Date of Payment": currentDate,
           "MONTHS PAID": formData["MONTHS PAID"]
         })
         .eq('id', payment.id);
