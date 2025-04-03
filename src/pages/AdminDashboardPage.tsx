@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
 import { usePayment } from '../contexts/PaymentContext';
 import { useTicket } from '../contexts/TicketContext';
+import logo from '../assets/HGC LOGO.png';
 
 // Define types for menu items
 type MenuItem = {
@@ -148,27 +149,8 @@ const AdminDashboardPage = () => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100">
-            <div className="relative flex items-center justify-center w-10 h-10 group cursor-pointer">
-              {/* Background Circle */}
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 
-                transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-500/40"></div>
-              
-              {/* Inner Ring */}
-              <div className="absolute inset-2 rounded-lg border-2 border-white/50 transition-all duration-300 
-                group-hover:border-white/70 group-hover:scale-105"></div>
-              
-              {/* Center Dot */}
-              <div className="absolute w-2 h-2 rounded-full bg-white shadow-lg transition-transform duration-300 
-                group-hover:scale-150 group-hover:shadow-xl"></div>
-              
-              {/* Orbital Circle */}
-              <div className="absolute w-full h-full rounded-xl border-2 border-white/30 
-                animate-[spin_8s_linear_infinite] group-hover:border-white/50"></div>
-              
-              {/* Small Orbiting Dot */}
-              <div className="absolute w-1.5 h-1.5 rounded-full bg-white shadow-lg shadow-white/50 top-0 
-                animate-[spin_8s_linear_infinite] transition-all duration-300 
-                group-hover:w-2 group-hover:h-2 group-hover:shadow-xl"></div>
+            <div className="flex items-center justify-center w-16 h-16 bg-white rounded-lg shadow p-2">
+              <img src={logo} alt="HGC Logo" className="w-full h-full object-contain" />
             </div>
             
             <div className="flex flex-col">
