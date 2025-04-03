@@ -129,7 +129,9 @@ const BalancePage: FC = () => {
           Terms: updatedData.Terms,
           TCP: updatedData.TCP,
           Amount: updatedData.Amount,
-          "Remaining Balance": updatedData["Remaining Balance"]
+          "Remaining Balance": updatedData["Remaining Balance"],
+          "Months Paid": updatedData["Months Paid"],
+          "MONTHS PAID": updatedData["MONTHS PAID"]
         })
         .eq('id', updatedData.id);
 
