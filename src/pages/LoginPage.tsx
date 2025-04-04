@@ -128,7 +128,7 @@ const LoginPage = () => {
         <div className="w-full max-w-md relative z-10">
           {/* Logo and brand */}
           <div className="text-center mb-8 animate-fadeIn">
-            <div className="inline-flex items-center justify-center w-28 h-28 bg-white rounded-lg shadow-lg mb-4 animate-float backdrop-blur-sm bg-white/80 border border-white/20 p-3">
+            <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 bg-white rounded-lg shadow-lg mb-4 animate-float backdrop-blur-sm bg-white/80 border border-white/20 p-3">
               <img src={logo} alt="HGC Logo" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight animate-slideUp delay-100">OMNI PORTAL</h1>
