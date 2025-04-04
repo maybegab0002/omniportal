@@ -290,11 +290,11 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Helper function to handle timezone conversion
+  // Helper function to handle dates without timezone shifting
   const formatToLocalDate = (date: Date | null) => {
     if (!date) return null;
-    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return new Date(date.toLocaleString('en-US', { timeZone: userTimezone }));
+    // Create a new date with the same year, month, and day, but at noon to avoid timezone issues
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
   };
 
   // Group balance records by project
