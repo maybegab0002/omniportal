@@ -102,8 +102,8 @@ const ReportPage: React.FC = () => {
 
   const calculateTotals = () => {
     const totals = filteredRecords.reduce((acc, record) => ({
-      amount: acc.amount + (record.Amount || 0),
-      penalty: acc.penalty + (record.Penalty || 0)
+      amount: acc.amount + (parseFloat(record.Amount?.toString() || '0') || 0),
+      penalty: acc.penalty + (parseFloat(record.Penalty?.toString() || '0') || 0)
     }), { amount: 0, penalty: 0 });
 
     return totals;

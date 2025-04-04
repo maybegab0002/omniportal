@@ -437,7 +437,13 @@ const PaymentPage: React.FC = () => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const projects = [
+    'all',
+    'Living Water Subdivision',
+    'Havahills Estate'
+  ];
   const { refreshPendingCount } = usePayment(); // Use the refreshPendingCount from context
 
   const handleUploadReceipt = async (payment: Payment, file: File, isAR: boolean = false) => {
@@ -532,14 +538,15 @@ const PaymentPage: React.FC = () => {
     setupRealtimeSubscription();
   }, []);
 
-  // Filter payments based on search and status
+  // Filter payments based on search, status, and project
   const filteredPayments = useMemo(() => {
     return payments.filter(payment => {
       const matchesSearch = payment.Name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = !selectedStatus || payment.Status === selectedStatus;
-      return matchesSearch && matchesStatus;
+      const matchesProject = selectedProject === 'all' || payment.Project === selectedProject;
+      return matchesSearch && matchesStatus && matchesProject;
     });
-  }, [payments, searchTerm, selectedStatus]);
+  }, [payments, searchTerm, selectedStatus, selectedProject]);
 
   const statuses = ['Pending', 'Approved', 'Rejected'];
 
@@ -643,11 +650,26 @@ const PaymentPage: React.FC = () => {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full h-10 pl-3 pr-8 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="w-48 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
               >
                 <option value="">All Status</option>
                 {statuses.map((status) => (
-                  <option key={status} value={status}>{status}</option>
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="w-48">
+              <select
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="w-48 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              >
+                {projects.map((project) => (
+                  <option key={project} value={project}>
+                    {project === 'all' ? 'All Projects' : project}
+                  </option>
                 ))}
               </select>
             </div>
