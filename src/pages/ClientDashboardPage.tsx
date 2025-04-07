@@ -297,6 +297,13 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
     return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
   };
 
+  // Helper function to set date to first day of the month
+  const formatToMonthStart = (date: Date | null) => {
+    if (!date) return null;
+    // Create a new date set to the first day of the selected month at noon
+    return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0);
+  };
+
   // Group balance records by project
   const projectBalances = useMemo(() => {
     const grouped = balanceRecords.reduce((acc, record) => {
@@ -476,7 +483,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
             "Payment Amount": parseFloat(amount),
             "Penalty Amount": penalty ? parseFloat(penalty) : null,
             "Date of Payment": formatToLocalDate(paymentDate)?.toISOString(),
-            "Month of Payment": formatToLocalDate(paymentMonth)?.toISOString(),
+            "Month of Payment": formatToMonthStart(paymentMonth)?.toISOString(),
             "Name": clientName,
             "Project": selectedProject, // Add the selected project
             "Status": "Pending", // Changed to capital P to match standard status format
@@ -722,7 +729,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                                 <div className="relative">
                                   <DatePicker
                                     selected={paymentMonth}
-                                    onChange={(date: Date | null) => date && setPaymentMonth(formatToLocalDate(date))}
+                                    onChange={(date: Date | null) => date && setPaymentMonth(formatToMonthStart(date))}
                                     dateFormat="MMMM yyyy"
                                     showMonthYearPicker
                                     placeholderText="Select month"
