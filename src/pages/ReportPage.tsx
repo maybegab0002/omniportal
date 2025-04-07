@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import PageTransition from '../components/PageTransition';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import { MagnifyingGlassIcon, DocumentTextIcon, ChartBarIcon, ExclamationTriangleIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, DocumentTextIcon, ChartBarIcon, ExclamationTriangleIcon, PencilIcon, PrinterIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import hdcLogo from '../assets/HDC LOGO.png';
 
 interface PaymentRecord {
   id: number;
@@ -17,17 +18,12 @@ interface PaymentRecord {
   "Payment Type": string;
 }
 
-const ReportPage: React.FC = () => {
-  const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [filteredRecords, setFilteredRecords] = useState<PaymentRecord[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPaymentType, setSelectedPaymentType] = useState<string>('all');
-  const [selectedProject, setSelectedProject] = useState<string>('all');
-  const [editingRecord, setEditingRecord] = useState<PaymentRecord | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+const ReportPage = (): ReactNode => {
+  const projects = [
+    'all',
+    'Living Water Subdivision',
+    'Havahills Estate'
+  ];
 
   const paymentTypes = [
     'all',
@@ -39,11 +35,19 @@ const ReportPage: React.FC = () => {
     'CBS-HHE'
   ];
 
-  const projects = [
-    'all',
-    'Living Water Subdivision',
-    'Havahills Estate'
-  ];
+  const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [selectedPrintDate, setSelectedPrintDate] = useState<Date | null>(null);
+  const [selectedPrintProject, setSelectedPrintProject] = useState(projects.find(p => p !== 'all') || '');
+  const [filteredRecords, setFilteredRecords] = useState<PaymentRecord[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPaymentType, setSelectedPaymentType] = useState<string>('all');
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [editingRecord, setEditingRecord] = useState<PaymentRecord | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     fetchPaymentRecords();
@@ -132,16 +136,298 @@ const ReportPage: React.FC = () => {
     }
   };
 
-  const calculateTotals = () => {
-    const totals = filteredRecords.reduce((acc, record) => ({
+  const calculateTotals = (records: PaymentRecord[]) => {
+    return records.reduce((acc, record) => ({
       amount: acc.amount + (parseFloat(record.Amount?.toString() || '0') || 0),
       penalty: acc.penalty + (parseFloat(record.Penalty?.toString() || '0') || 0)
     }), { amount: 0, penalty: 0 });
 
-    return totals;
   };
 
-  const totals = calculateTotals();
+  const totals = calculateTotals(filteredRecords);
+
+  const getMonthlyTotal = (date: Date | null, project: string) => {
+    if (!date) return 0;
+    return paymentRecords
+      .filter(record => {
+        const recordDate = new Date(record.created_at);
+        return recordDate.getMonth() === date.getMonth() &&
+               recordDate.getFullYear() === date.getFullYear() &&
+               (project === 'all' || record.Project === project);
+      })
+      .reduce((sum, record) => sum + (Number(record.Amount) + (Number(record.Penalty) || 0)), 0);
+  };
+
+  const getDailyTotal = (date: Date | null, project: string) => {
+    if (!date) return 0;
+    return paymentRecords
+      .filter(record => {
+        const recordDate = new Date(record.created_at);
+        const isMatchingDate = recordDate.getDate() === date.getDate() &&
+                              recordDate.getMonth() === date.getMonth() &&
+                              recordDate.getFullYear() === date.getFullYear();
+        return isMatchingDate && (project === 'all' || record.Project === project);
+      })
+      .reduce((sum, record) => sum + (Number(record.Amount) + (Number(record.Penalty) || 0)), 0);
+  };
+
+  const convertImageToBase64 = async (imgUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = reject;
+      img.src = imgUrl;
+    });
+  };
+
+  const handlePrint = async () => {
+    if (!selectedPrintDate || !selectedPrintProject) {
+      alert('Please select both a date and project before printing');
+      return;
+    }
+
+    const printRecords = paymentRecords.filter(record => {
+      const recordDate = new Date(record.created_at);
+      const isMatchingDate = recordDate.getDate() === selectedPrintDate.getDate() &&
+                            recordDate.getMonth() === selectedPrintDate.getMonth() &&
+                            recordDate.getFullYear() === selectedPrintDate.getFullYear();
+      return isMatchingDate && record.Project === selectedPrintProject;
+    });
+
+    const printTotals = calculateTotals(printRecords);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const currentDate = new Date().toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    const logoBase64 = await convertImageToBase64(hdcLogo);
+    const html = `
+      <html>
+        <head>
+          <title></title>
+          <style>
+            @page {
+              margin: 0;
+              size: A4;
+            }
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0;
+              padding: 0;
+              color: #333;
+              background: linear-gradient(45deg, #0A0D50 25%, transparent 25%) -50px 0,
+                        linear-gradient(-45deg, #0A0D50 25%, transparent 25%) -50px 0,
+                        linear-gradient(45deg, transparent 75%, #0A0D50 75%),
+                        linear-gradient(-45deg, transparent 75%, #0A0D50 75%);
+              background-size: 10px 10px;
+              background-color: white;
+            }
+            .report-wrapper {
+              background: white;
+              margin: 0;
+              min-height: 100vh;
+              position: relative;
+              z-index: 1;
+            }
+            .pattern-border {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 80px;
+              background: repeating-linear-gradient(
+                45deg,
+                #0A0D50,
+                #0A0D50 10px,
+                #141B7A 10px,
+                #141B7A 20px
+              );
+              opacity: 0.1;
+            }
+            .pattern-border-bottom {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              height: 40px;
+              background: repeating-linear-gradient(
+                45deg,
+                #0A0D50,
+                #0A0D50 10px,
+                #141B7A 10px,
+                #141B7A 20px
+              );
+              opacity: 0.1;
+            }
+            .content {
+              padding: 40px;
+              position: relative;
+              z-index: 2;
+            }
+            .header {
+              margin-bottom: 40px;
+              position: relative;
+              display: flex;
+              align-items: flex-start;
+              justify-content: space-between;
+            }
+            .header-left {
+              display: flex;
+              align-items: center;
+              gap: 15px;
+            }
+            .logo {
+              width: 60px;
+              height: auto;
+            }
+            .report-title {
+              color: #0A0D50;
+              font-size: 24px;
+              font-weight: bold;
+              margin: 0;
+              border-bottom: 2px solid #0A0D50;
+              padding-bottom: 5px;
+            }
+            .report-info {
+              text-align: right;
+              font-size: 12px;
+              color: #666;
+            }
+            .report-info p {
+              margin: 3px 0;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: separate;
+              border-spacing: 0;
+              margin-top: 20px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            th { 
+              background-color: #0A0D50; 
+              color: white;
+              padding: 12px;
+              text-align: left;
+              font-size: 12px;
+              position: relative;
+            }
+            th:after {
+              content: '';
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              width: 100%;
+              height: 2px;
+              background: linear-gradient(90deg, #0A0D50, #141B7A);
+            }
+            td { 
+              padding: 12px;
+              border-bottom: 1px solid #eee;
+              font-size: 12px;
+              background: white;
+            }
+            tr:hover td {
+              background-color: #f8f9fc;
+            }
+            .totals {
+              margin-top: 30px;
+              padding: 20px;
+              background: #f8f9fc;
+              border-radius: 4px;
+              border-left: 4px solid #0A0D50;
+            }
+            .totals p {
+              margin: 8px 0;
+              display: flex;
+              justify-content: space-between;
+              font-size: 12px;
+            }
+            .total-amount {
+              font-weight: bold;
+              color: #0A0D50;
+            }
+            @media print {
+              body { background: none; }
+              .pattern-border, .pattern-border-bottom { display: none; }
+              th { background-color: #0A0D50 !important; color: white !important; }
+              .report-wrapper { margin: 0; box-shadow: none; }
+              thead { display: table-header-group; }
+              tfoot { display: table-footer-group; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="pattern-border"></div>
+          <div class="pattern-border-bottom"></div>
+          <div class="report-wrapper">
+            <div class="content">
+              <div class="header">
+                <div class="header-left">
+                  <img src="${logoBase64}" alt="HDC Logo" class="logo">
+                  <h1 class="report-title">Payment Report</h1>
+                </div>
+                <div class="report-info">
+                  <p>Generated on: ${currentDate}</p>
+                  <p>Project: ${selectedPrintProject}</p>
+                  <p>Date: ${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                </div>
+              </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Project</th>
+                <th>Block & Lot</th>
+                <th>Amount</th>
+                <th>Penalty</th>
+                <th>Payment Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${printRecords.map(record => `
+                <tr>
+                  <td>${new Date(record.created_at).toLocaleDateString()}</td>
+                  <td>${record.Name}</td>
+                  <td>${record.Project}</td>
+                  <td>Block ${record.Block} Lot ${record.Lot}</td>
+                  <td>₱${record.Amount.toLocaleString()}</td>
+                  <td>${record.Penalty ? `₱${record.Penalty.toLocaleString()}` : 'N/A'}</td>
+                  <td>${record["Payment Type"]}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="totals mb-4">
+            <p><span>Total Amount:</span> <span class="total-amount">₱${printTotals.amount.toLocaleString()}</span></p>
+            <p><span>Total Penalty:</span> <span class="total-amount">₱${printTotals.penalty.toLocaleString()}</span></p>
+            <p><span>Grand Total:</span> <span class="total-amount">₱${(printTotals.amount + printTotals.penalty).toLocaleString()}</span></p>
+            <p><span>Monthly Total (${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):</span> <span class="total-amount">₱${getMonthlyTotal(selectedPrintDate, selectedPrintProject).toLocaleString()}</span></p>
+            <p><span>Daily Total (${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}):</span> <span class="total-amount">₱${getDailyTotal(selectedPrintDate, selectedPrintProject).toLocaleString()}</span></p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
 
   return (
     <PageTransition>
@@ -164,7 +450,7 @@ const ReportPage: React.FC = () => {
             />
             <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <DatePicker
               selected={startDate}
               onChange={(date: Date | null) => setStartDate(date)}
@@ -206,8 +492,95 @@ const ReportPage: React.FC = () => {
                 </option>
               ))}
             </select>
+            <button
+              onClick={() => setIsPrintModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <PrinterIcon className="h-5 w-5" />
+              Print Report
+            </button>
           </div>
         </div>
+
+        {/* Print Modal */}
+        {isPrintModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <PrinterIcon className="h-5 w-5 text-[#0A0D50]" />
+                  <h3 className="text-lg font-medium text-gray-900">Print Report</h3>
+                </div>
+                <button
+                  onClick={() => setIsPrintModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Project</label>
+                  <select
+                    value={selectedPrintProject}
+                    onChange={(e) => setSelectedPrintProject(e.target.value)}
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-[#0A0D50] focus:border-[#0A0D50] rounded-md"
+                  >
+                    <option value="">Choose a project</option>
+                    {projects.filter(p => p !== 'all').map((project) => (
+                      <option key={project} value={project}>{project}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Date</label>
+                  <div className="relative">
+                    <DatePicker
+                      selected={selectedPrintDate}
+                      onChange={(date) => setSelectedPrintDate(date)}
+                      dateFormat="MMMM d, yyyy"
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-[#0A0D50] focus:border-[#0A0D50] rounded-md"
+                      placeholderText="Select a date"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                    <span>Monthly Total:</span>
+                    <span className="font-medium text-[#0A0D50]">
+                      ₱{selectedPrintDate && selectedPrintProject ? getMonthlyTotal(selectedPrintDate, selectedPrintProject).toLocaleString() : '0'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>Daily Total:</span>
+                    <span className="font-medium text-[#0A0D50]">
+                      ₱{selectedPrintDate && selectedPrintProject ? getDailyTotal(selectedPrintDate, selectedPrintProject).toLocaleString() : '0'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-end space-x-3">
+                <button
+                  onClick={() => setIsPrintModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0A0D50]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePrint}
+                  disabled={!selectedPrintDate || !selectedPrintProject}
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0A0D50] ${!selectedPrintDate || !selectedPrintProject ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#0A0D50] hover:bg-[#141B7A]'}`}
+                >
+                  Generate Report
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -469,25 +842,13 @@ const ReportPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    <button
+                      type="submit"
+                      className="mt-4 inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      Save Changes
+                    </button>
                   </div>
-                </div>
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditModalOpen(false);
-                      setEditingRecord(null);
-                    }}
-                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  >
-                    Save Changes
-                  </button>
                 </div>
               </form>
             </div>

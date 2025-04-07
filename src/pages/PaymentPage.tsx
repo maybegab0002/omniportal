@@ -18,6 +18,7 @@ interface Payment {
   notified?: boolean;
   Project: string;
   "Payment Type"?: string;
+  "Month of Payment": string;
   "MONTHS PAID"?: number | null;
 }
 
@@ -73,12 +74,12 @@ const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, re
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
                 ) : receiptUrl ? (
-                  <div className="relative" style={{ height: '70vh' }}>
-                    <iframe
+                  <div className="relative max-h-[80vh] overflow-hidden flex items-center justify-center">
+                    <img
                       src={receiptUrl}
-                      className="w-full h-full rounded-lg border border-gray-200"
-                      title="Payment Receipt"
-                    />
+                      className="max-w-full max-h-[75vh] object-contain rounded-lg"
+                      alt="Payment Receipt"
+                      style={{ margin: 'auto' }} />
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
@@ -123,7 +124,7 @@ const EditPaymentModal: React.FC<EditPaymentModalProps> = ({ isOpen, onClose, pa
         "Penalty Amount": payment["Penalty Amount"] || null,
         "Date of Payment": payment["Date of Payment"] || '',
         "Payment Type": payment["Payment Type"] || '',
-        "MONTHS PAID": payment["MONTHS PAID"] ? Number(payment["MONTHS PAID"]) : null,
+        "MONTHS PAID": payment["MONTHS PAID"] || null,
       });
     }
   }, [payment]);
@@ -688,7 +689,8 @@ const PaymentPage: React.FC = () => {
                 <table className="w-full table-auto divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Payment Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Payment For The Month Of</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Name</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Project</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Block & Lot</th>
@@ -704,7 +706,10 @@ const PaymentPage: React.FC = () => {
                     {filteredPayments.map((payment, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(payment["Date of Payment"]).toLocaleDateString()}
+                          {new Date(payment["Date of Payment"]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {payment["Month of Payment"] ? new Date(payment["Month of Payment"]).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {payment.Name}
