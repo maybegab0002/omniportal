@@ -35,6 +35,7 @@ interface PaymentRecord {
   "Lot": string;
   "Payment Type": string;
   "Penalty"?: number;
+  "Payment for the Month of": string;
 }
 
 const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, onSave, data }) => {
@@ -44,6 +45,12 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
   const [totalAmount, setTotalAmount] = React.useState<number | null>(data?.Amount || 0);
   const [penalty, setPenalty] = React.useState<number | null>(null);
   const [paymentType, setPaymentType] = React.useState<string>('cash');
+  const [paymentMonth, setPaymentMonth] = React.useState<string>('');
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   const paymentTypes = [
     'CASH',
@@ -107,7 +114,8 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
         "Project": data.Project,
         "Block": data.Block,
         "Lot": data.Lot,
-        "Payment Type": paymentType
+        "Payment Type": paymentType,
+        "Payment for the Month of": paymentMonth,
       };
 
       // Only add penalty if it has a value
@@ -304,45 +312,63 @@ const EditBalanceModal: React.FC<EditBalanceModalProps> = ({ isOpen, onClose, on
                         <span>Payment Details</span>
                       </h4>
                       <div className="grid gap-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
-                            <label htmlFor="amount" className="block text-sm font-medium text-gray-600 mb-1">
-                              Amount
-                            </label>
-                            <div className="relative">
-                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <span className="text-gray-500 sm:text-sm">₱</span>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                              <label htmlFor="amount" className="block text-sm font-medium text-gray-600 mb-1">
+                                Amount
+                              </label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <span className="text-gray-500 sm:text-sm">₱</span>
+                                </div>
+                                <input
+                                  type="number"
+                                  id="amount"
+                                  value={formData?.Amount || ''}
+                                  onChange={(e) => handleInputChange('Amount', e.target.value)}
+                                  className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                                  placeholder="0.00"
+                                />
                               </div>
-                              <input
-                                type="number"
-                                id="amount"
-                                value={formData?.Amount || ''}
-                                onChange={(e) => handleInputChange('Amount', e.target.value)}
-                                className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
-                                placeholder="0.00"
-                              />
+                            </div>
+
+                            <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
+                              <label htmlFor="penalty" className="block text-sm font-medium text-gray-600 mb-1">
+                                Penalty
+                              </label>
+                              <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                  <span className="text-gray-500 sm:text-sm">₱</span>
+                                </div>
+                                <input
+                                  type="number"
+                                  id="penalty"
+                                  value={penalty || ''}
+                                  onChange={(e) => handleInputChange('Penalty', e.target.value)}
+                                  className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                                  placeholder="0.00"
+                                />
+                              </div>
                             </div>
                           </div>
 
                           <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
-                            <label htmlFor="penalty" className="block text-sm font-medium text-gray-600 mb-1">
-                              Penalty
+                            <label htmlFor="paymentMonth" className="block text-sm font-medium text-gray-600 mb-1">
+                              Payment for the Month of
                             </label>
-                            <div className="relative">
-                              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <span className="text-gray-500 sm:text-sm">₱</span>
-                              </div>
-                              <input
-                                type="number"
-                                id="penalty"
-                                value={penalty || ''}
-                                onChange={(e) => handleInputChange('Penalty', e.target.value)}
-                                className="block w-full rounded-md border-0 bg-white pl-7 pr-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
-                                placeholder="0.00"
-                              />
-                            </div>
+                            <select
+                              id="paymentMonth"
+                              value={paymentMonth}
+                              onChange={(e) => setPaymentMonth(e.target.value)}
+                              className="block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm transition-all"
+                              required
+                            >
+                              <option value="">Select Month</option>
+                              {months.map((month) => (
+                                <option key={month} value={month}>{month}</option>
+                              ))}
+                            </select>
                           </div>
-                        </div>
 
                         <div className="bg-gray-50/50 border border-gray-100 hover:border-gray-200 rounded-lg p-3 transition-all">
                           <label htmlFor="paymentType" className="block text-sm font-medium text-gray-600 mb-1">

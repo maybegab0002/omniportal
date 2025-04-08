@@ -133,7 +133,7 @@ const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, re
                                     .detail-label {
                                       color: #1e40af;
                                       font-weight: 600;
-                                      width: 100px;
+                                      width: 180px;
                                       flex-shrink: 0;
                                     }
                                     .detail-value {
@@ -177,6 +177,10 @@ const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, re
                                       <div class="detail-row">
                                         <div class="detail-label">Date:</div>
                                         <div class="detail-value">${payment['Date of Payment']}</div>
+                                      </div>
+                                      <div class="detail-row">
+                                        <div class="detail-label">Payment For The Month Of:</div>
+                                        <div class="detail-value">${payment['Month of Payment'] || 'N/A'}</div>
                                       </div>
                                       <div class="detail-row">
                                         <div class="detail-label">Amount:</div>

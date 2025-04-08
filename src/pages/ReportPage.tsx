@@ -16,6 +16,7 @@ interface PaymentRecord {
   Lot: string;
   Penalty: number;
   "Payment Type": string;
+  "Payment for the Month of": string;
 }
 
 const ReportPage = (): ReactNode => {
@@ -37,8 +38,7 @@ const ReportPage = (): ReactNode => {
 
   const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [selectedPrintDate, setSelectedPrintDate] = useState<Date | null>(null);
   const [selectedPrintProject, setSelectedPrintProject] = useState(projects.find(p => p !== 'all') || '');
@@ -55,17 +55,11 @@ const ReportPage = (): ReactNode => {
 
   useEffect(() => {
     filterRecords();
-  }, [startDate, endDate, paymentRecords, searchTerm, selectedPaymentType, selectedProject]);
+  }, [paymentRecords, searchTerm, selectedPaymentType, selectedProject]);
 
   const filterRecords = () => {
     let filtered = [...paymentRecords];
     
-    if (startDate && endDate) {
-      filtered = filtered.filter(record => {
-        const recordDate = new Date(record.created_at);
-        return recordDate >= startDate && recordDate <= endDate;
-      });
-    }
 
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -388,24 +382,28 @@ const ReportPage = (): ReactNode => {
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Payment for the Month of</th>
                 <th>Name</th>
                 <th>Project</th>
                 <th>Block & Lot</th>
                 <th>Amount</th>
                 <th>Penalty</th>
                 <th>Payment Type</th>
+                <th>Payment Month</th>
               </tr>
             </thead>
             <tbody>
               ${printRecords.map(record => `
                 <tr>
-                  <td>${new Date(record.created_at).toLocaleDateString()}</td>
+                  <td>${new Date(record.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                  <td>${record["Payment for the Month of"] || ''}</td>
                   <td>${record.Name}</td>
                   <td>${record.Project}</td>
                   <td>Block ${record.Block} Lot ${record.Lot}</td>
                   <td>₱${record.Amount.toLocaleString()}</td>
                   <td>${record.Penalty ? `₱${record.Penalty.toLocaleString()}` : 'N/A'}</td>
                   <td>${record["Payment Type"]}</td>
+                  <td>${record["Payment for the Month of"] || ''}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -431,15 +429,15 @@ const ReportPage = (): ReactNode => {
 
   return (
     <PageTransition>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4 flex flex-col">
         {/* Page Title and Description */}
-        <div className="mb-6">
+        <div className="mb-2">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Reports</h1>
           <p className="text-gray-600">A comprehensive list of all payment reports and transactions in the system.</p>
         </div>
 
         {/* Search Bar and Filters */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-2">
           <div className="relative w-64">
             <input
               type="text"
@@ -451,25 +449,6 @@ const ReportPage = (): ReactNode => {
             <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           </div>
           <div className="flex gap-4 items-center">
-            <DatePicker
-              selected={startDate}
-              onChange={(date: Date | null) => setStartDate(date)}
-              selectsStart
-              startDate={startDate || undefined}
-              endDate={endDate || undefined}
-              className="w-48 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-              placeholderText="Start Date"
-            />
-            <DatePicker
-              selected={endDate}
-              onChange={(date: Date | null) => setEndDate(date)}
-              selectsEnd
-              startDate={startDate || undefined}
-              endDate={endDate || undefined}
-              minDate={startDate || undefined}
-              className="w-48 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-              placeholderText="End Date"
-            />
             <select
               value={selectedPaymentType}
               onChange={(e) => setSelectedPaymentType(e.target.value)}
@@ -583,8 +562,8 @@ const ReportPage = (): ReactNode => {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-50 rounded-lg p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+          <div className="bg-blue-50 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-3xl font-semibold text-blue-600">{filteredRecords.length}</p>
@@ -599,7 +578,7 @@ const ReportPage = (): ReactNode => {
             </div>
           </div>
 
-          <div className="bg-purple-50 rounded-lg p-4">
+          <div className="bg-purple-50 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-3xl font-semibold text-purple-600">
@@ -620,7 +599,7 @@ const ReportPage = (): ReactNode => {
             </div>
           </div>
 
-          <div className="bg-amber-50 rounded-lg p-4">
+          <div className="bg-amber-50 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-3xl font-semibold text-amber-600">
@@ -643,59 +622,66 @@ const ReportPage = (): ReactNode => {
         </div>
 
         {/* Payment Records Table */}
-        <div className="mt-6">
-          <div className="mb-4">
+        <div className="flex-1 min-h-0">
+          <div className="mb-2">
             <span className="text-sm font-medium text-gray-600">
               Showing <span className="font-semibold text-gray-900">{filteredRecords.length}</span> records
             </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
+          <div className="relative border border-gray-200 rounded-lg">
+            <div className="overflow-auto h-[600px]">
+            <table className="min-w-full table-fixed">
+              <thead className="sticky top-0 bg-gray-50 z-10">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px]">
                     Date
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px]">
+                    Payment for the Month of
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[200px]">
                     Project
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px]">
                     Name
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
                     Block
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
                     Lot
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
                     Amount
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
                     Penalty
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
                     Payment Type
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
+                    Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-200 overflow-auto">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                       Loading payment records...
                     </td>
                   </tr>
                 ) : filteredRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center">
+                    <td colSpan={9} className="px-6 py-10 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <h3 className="mt-2 text-sm font-medium text-gray-900">No payment records found</h3>
                         <p className="mt-1 text-sm text-gray-500">
-                          {searchTerm || (startDate && endDate) ? 'Try adjusting your search or filter criteria' : 'No records available at the moment'}
+                          {searchTerm ? 'Try adjusting your search criteria' : 'No records available at the moment'}
                         </p>
                       </div>
                     </td>
@@ -703,7 +689,7 @@ const ReportPage = (): ReactNode => {
                 ) : (
                   filteredRecords.map((record) => (
                     <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {new Date(record.created_at).toLocaleDateString('en-PH', {
                           year: 'numeric',
                           month: 'long',
@@ -712,34 +698,37 @@ const ReportPage = (): ReactNode => {
                           minute: '2-digit'
                         })}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {record["Payment for the Month of"] || ''}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {record.Project}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {record.Name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {record.Block}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {record.Lot}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                         {new Intl.NumberFormat('en-PH', {
                           style: 'currency',
                           currency: 'PHP'
                         }).format(record.Amount)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-red-600">
                         {record.Penalty ? new Intl.NumberFormat('en-PH', {
                           style: 'currency',
                           currency: 'PHP'
                         }).format(record.Penalty) : '₱0.00'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {record["Payment Type"] || 'cash'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => handleEdit(record)}
                           className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200 flex items-center space-x-2"
@@ -753,6 +742,7 @@ const ReportPage = (): ReactNode => {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 
