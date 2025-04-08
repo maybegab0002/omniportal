@@ -28,10 +28,11 @@ interface ViewReceiptModalProps {
   onClose: () => void;
   receiptUrl: string | null;
   isLoading: boolean;
+  payment: Payment | null;
 }
 
 // View Receipt Modal Component
-const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, receiptUrl, isLoading }) => {
+const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, receiptUrl, isLoading, payment }) => {
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-10" onClose={onClose}>
@@ -61,12 +62,154 @@ const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, re
               <Dialog.Panel className="w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4 flex justify-between items-center">
                   Payment Receipt
-                  <button
-                    onClick={onClose}
-                    className="text-gray-400 hover:text-gray-500 focus:outline-none"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
+                  <div className="flex gap-2 items-center">
+                    <button
+                      onClick={() => {
+                        if (receiptUrl && payment) {
+                          const printWindow = window.open('', '_blank');
+                          if (printWindow) {
+                            printWindow.document.write(`
+                              <!DOCTYPE html>
+                              <html>
+                                <head>
+                                  <title>Payment Receipt</title>
+                                  <style>
+                                    @media print {
+                                      @page { 
+                                        margin: 0;
+                                        size: A4 portrait;
+                                      }
+                                      body { 
+                                        margin: 1cm;
+                                        -webkit-print-color-adjust: exact;
+                                        print-color-adjust: exact;
+                                      }
+                                    }
+                                    @page {
+                                      size: A4;
+                                      margin: 0;
+                                    }
+                                    body {
+                                      font-family: Arial, sans-serif;
+                                      line-height: 1.4;
+                                      color: #333;
+                                      width: 210mm;
+                                      min-height: 297mm;
+                                      margin: 0 auto;
+                                      padding: 15mm;
+                                      box-sizing: border-box;
+                                    }
+                                    .receipt-header {
+                                      text-align: center;
+                                      padding: 10px 0;
+                                      margin-bottom: 15px;
+                                      border-bottom: 2px solid #2563eb;
+                                    }
+                                    .receipt-header h2 {
+                                      margin: 0;
+                                      color: #2563eb;
+                                      font-size: 20px;
+                                      font-weight: bold;
+                                    }
+                                    .client-details {
+                                      width: 100%;
+                                      margin-bottom: 15px;
+                                      padding: 15px;
+                                      background: #f8fafc;
+                                      border: 1px solid #e2e8f0;
+                                      border-radius: 4px;
+                                    }
+                                    .detail-row {
+                                      display: flex;
+                                      align-items: center;
+                                      margin-bottom: 6px;
+                                      font-size: 13px;
+                                    }
+                                    .detail-row:last-child {
+                                      margin-bottom: 0;
+                                      padding-top: 6px;
+                                      border-top: 1px solid #e2e8f0;
+                                    }
+                                    .detail-label {
+                                      color: #1e40af;
+                                      font-weight: 600;
+                                      width: 100px;
+                                      flex-shrink: 0;
+                                    }
+                                    .detail-value {
+                                      flex-grow: 1;
+                                    }
+                                    .receipt-image-container {
+                                      width: 100%;
+                                      text-align: center;
+                                      max-height: calc(297mm - 140mm);
+                                      overflow: hidden;
+                                    }
+                                    .receipt-image {
+                                      width: 65%;
+                                      height: auto;
+                                      max-height: calc(297mm - 150mm);
+                                      object-fit: contain;
+                                      border: 1px solid #e2e8f0;
+                                      border-radius: 4px;
+                                      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                                    }
+                                  </style>
+                                </head>
+                                <body onload="window.print();window.close()">
+                                  <div class="container">
+                                    <div class="receipt-header">
+                                      <h2>Payment Receipt</h2>
+                                    </div>
+                                    <div class="client-details">
+                                      <div class="detail-row">
+                                        <div class="detail-label">Name:</div>
+                                        <div class="detail-value">${payment.Name}</div>
+                                      </div>
+                                      <div class="detail-row">
+                                        <div class="detail-label">Block & Lot:</div>
+                                        <div class="detail-value">${payment['Block & Lot']}</div>
+                                      </div>
+                                      <div class="detail-row">
+                                        <div class="detail-label">Project:</div>
+                                        <div class="detail-value">${payment.Project}</div>
+                                      </div>
+                                      <div class="detail-row">
+                                        <div class="detail-label">Date:</div>
+                                        <div class="detail-value">${payment['Date of Payment']}</div>
+                                      </div>
+                                      <div class="detail-row">
+                                        <div class="detail-label">Amount:</div>
+                                        <div class="detail-value">₱${payment['Payment Amount'].toLocaleString()}</div>
+                                      </div>
+                                    </div>
+                                    <div class="receipt-image-container">
+                                      <img src="${receiptUrl}" class="receipt-image" alt="Receipt" />
+                                    </div>
+                                  </div>
+                                </body>
+                              </html>
+                            `);
+                            printWindow.document.close();
+                          }
+                        }
+                      }}
+                      className="text-blue-600 hover:text-blue-700 focus:outline-none p-1.5 rounded-md hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!receiptUrl}
+                      title="Print Receipt"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="text-gray-400 hover:text-gray-500 focus:outline-none p-1.5 hover:bg-gray-100 rounded-md"
+                      title="Close"
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  </div>
                 </Dialog.Title>
 
                 {isLoading ? (
@@ -436,6 +579,7 @@ const PaymentPage: React.FC = () => {
   const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [viewingPayment, setViewingPayment] = useState<Payment | null>(null);
   const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
@@ -487,6 +631,7 @@ const PaymentPage: React.FC = () => {
     setIsLoadingReceipt(true);
     setIsReceiptModalOpen(true);
     setReceiptUrl(null);
+    setViewingPayment(payment);
 
     try {
       // Get receipt using the path that includes client folder
@@ -890,9 +1035,11 @@ const PaymentPage: React.FC = () => {
           onClose={() => {
             setIsReceiptModalOpen(false);
             setReceiptUrl(null);
+            setViewingPayment(null);
           }}
           receiptUrl={receiptUrl}
           isLoading={isLoadingReceipt}
+          payment={viewingPayment}
         />
 
         {/* Edit Payment Modal */}
