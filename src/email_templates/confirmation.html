@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome to Omni Portal</title>
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're on the confirmation page
+    if (window.location.href.includes('type=signup') || window.location.href.includes('type=magiclink')) {
+      window.location.replace('https://maybegab0002.github.io/omniportal/login');
+    }
+  });
+</script>
+  <style>
+    /* Reset styles */
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f7fa;
+    }
+    
+    /* Container styles */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    
+    /* Header styles */
+    .header {
+      background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      padding: 30px 20px;
+      text-align: center;
+      color: white;
+    }
+    
+    .logo {
+      width: 60px;
+      height: 60px;
+      margin-bottom: 15px;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Content styles */
+    .content {
+      padding: 30px 25px;
+    }
+    
+    h2 {
+      color: #2563eb;
+      font-size: 22px;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+    
+    p {
+      margin-bottom: 20px;
+      color: #4b5563;
+    }
+    
+    /* Button styles */
+    .button-container {
+      text-align: center;
+      margin: 30px 0;
+    }
+
+    /* Link styles */
+    .portal-link {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .portal-link:hover {
+      color: #1e40af;
+      text-decoration: underline;
+    }
+    
+    /* Credentials box styles */
+    .credentials-box {
+      background-color: #f0f7ff;
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
+      border-radius: 6px;
+      padding: 20px;
+      margin: 25px 0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .credentials-box h3 {
+      margin-top: 0;
+      color: #2563eb;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    
+    .credential-item {
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed #e5e7eb;
+    }
+    
+    .credential-item:last-child {
+      border-bottom: none;
+      margin-bottom: 5px;
+      padding-bottom: 0;
+    }
+    
+    .credential-label {
+      font-weight: 600;
+      display: inline-block;
+      width: 80px;
+      color: #4b5563;
+    }
+    
+    .credential-value {
+      font-family: monospace;
+      background-color: #ffffff;
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .security-note {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+    }
+    
+    .security-icon {
+      margin-right: 8px;
+      color: #9ca3af;
+    }
+    
+    /* Features styles */
+    .features-title {
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #374151;
+    }
+    
+    .features {
+      display: flex;
+      justify-content: space-between;
+      margin: 25px 0;
+      flex-wrap: wrap;
+    }
+    
+    .feature {
+      flex-basis: 30%;
+      text-align: center;
+      padding: 15px 10px;
+      background-color: #f9fafb;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .feature:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    
+    .feature-title {
+      font-weight: 600;
+      color: #4b5563;
+      margin-bottom: 5px;
+    }
+    
+    .feature-desc {
+      font-size: 13px;
+      color: #6b7280;
+    }
+    
+    /* Support section */
+    .support-section {
+      background-color: #f9fafb;
+      padding: 20px;
+      border-radius: 6px;
+      margin-top: 25px;
+      text-align: center;
+    }
+    
+    .support-title {
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+    
+    /* Footer styles */
+    .footer {
+      background-color: #f3f4f6;
+      padding: 20px;
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+    }
+    
+    .footer p {
+      margin: 5px 0;
+      color: #6b7280;
+    }
+    
+    .social-links {
+      margin: 15px 0;
+    }
+    
+    .social-link {
+      display: inline-block;
+      margin: 0 8px;
+      color: #2563eb;
+      text-decoration: none;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      .container {
+        width: 100%;
+        border-radius: 0;
+      }
+      
+      .features {
+        flex-direction: column;
+      }
+      
+      .feature {
+        flex-basis: 100%;
+        margin-bottom: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <svg class="logo" fill="none" stroke="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+      <h1>Welcome to Omni Portal</h1>
+    </div>
+    
+    <div class="content">
+      <h2>You're almost there!</h2>
+      <p>Thank you for signing up for Omni Portal, your premium real estate management solution. To complete your registration and access your dashboard, please confirm your email address.</p>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <p>
+          <a href="{{ .ConfirmationURL }}" class="portal-link">Click here to confirm your email address</a>
+        </p>
+        <p style="margin-top: 15px; font-weight: 600; color: #4b5563;">
+          After confirming your email, please go to:<br>
+          <a href="https://maybegab0002.github.io/omniportal/" class="portal-link">https://maybegab0002.github.io/omniportal/</a>
+        </p>
+      </div>
+      
+      <!-- Enhanced credentials box -->
+      <div class="credentials-box">
+        <h3>Your Login Credentials</h3>
+        <p>Please save these credentials for future logins:</p>
+        
+        <div class="credential-item">
+          <span class="credential-label">Email:</span> 
+          <span class="credential-value">{{ .Data.client_email }}</span>
+        </div>
+        
+        <div class="credential-item">
+          <span class="credential-label">Password:</span> 
+          <span class="credential-value">{{ .Data.client_password }}</span>
+        </div>
+        
+        <div class="security-note">
+          <span class="security-icon">🔒</span>
+          <span>For security reasons, we recommend changing your password after your first login.</span>
+        </div>
+      </div>
+      
+      <p class="features-title">Once confirmed, you'll have access to all the premium features of Omni Portal:</p>
+      
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🏢</div>
+          <div class="feature-title">Property Management</div>
+          <div class="feature-desc">Easily manage all your properties in one place</div>
+        </div>
+        
+        <div class="feature">
+          <div class="feature-icon">📄</div>
+          <div class="feature-title">Document Storage</div>
+          <div class="feature-desc">Secure cloud storage for all your important files</div>
+        </div>
+        
+        <div class="feature">
+          <div class="feature-icon">🎫</div>
+          <div class="feature-title">Support Ticketing</div>
+          <div class="feature-desc">Get help quickly when you need it most</div>
+        </div>
+      </div>
+      
+      <p>If you did not sign up for an Omni Portal account, please disregard this email.</p>
+      
+      <div class="support-section">
+        <div class="support-title">Need Help?</div>
+        <p>Our support team is ready to assist you with any questions you might have.</p>
+        <a href="#" class="button" style="background-color: #4b5563; margin-top: 10px; padding: 8px 20px; font-size: 14px;">Contact Support</a>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <div class="social-links">
+        <a href="#" class="social-link">Twitter</a> • 
+        <a href="#" class="social-link">Facebook</a> • 
+        <a href="#" class="social-link">LinkedIn</a>
+      </div>
+      <p>&copy; 2025 Omni Portal. All rights reserved.</p>
+      <p>This email was sent to you as part of the registration process for Omni Portal.</p>
+    </div>
+  </div>
+</body>
+</html>

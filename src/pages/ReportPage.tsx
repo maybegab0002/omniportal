@@ -36,6 +36,21 @@ const ReportPage = (): ReactNode => {
     'CBS-HHE'
   ];
 
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+  ];
+
   const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -631,36 +646,36 @@ const ReportPage = (): ReactNode => {
           <div className="relative border border-gray-200 rounded-lg">
             <div className="overflow-auto h-[600px]">
             <table className="min-w-full table-fixed">
-              <thead className="sticky top-0 bg-gray-50 z-10">
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px]">
+              <thead className="sticky top-0 bg-[#0A0D50] z-10">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[180px]">
                     Date
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[180px]">
                     Payment for the Month of
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[200px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[200px]">
                     Project
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[180px]">
                     Name
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[100px]">
                     Block
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[100px]">
                     Lot
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[120px]">
                     Amount
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[120px]">
                     Penalty
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[120px]">
                     Payment Type
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[100px]">
                     Actions
                   </th>
                 </tr>
@@ -748,13 +763,24 @@ const ReportPage = (): ReactNode => {
 
         {/* Edit Modal */}
         {isEditModalOpen && editingRecord && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Payment Record</h3>
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full transform transition-all">
+              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <PencilIcon className="h-5 w-5 text-[#0A0D50]" />
+                  <h3 className="text-lg font-medium text-gray-900">Edit Payment Record</h3>
+                </div>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
               <form onSubmit={(e) => {
                 e.preventDefault();
                 if (editingRecord) handleUpdateRecord(editingRecord);
-              }}>
+              }} className="px-6 py-4">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Name</label>
@@ -762,54 +788,63 @@ const ReportPage = (): ReactNode => {
                       type="text"
                       value={editingRecord.Name}
                       onChange={(e) => setEditingRecord({ ...editingRecord, Name: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Amount</label>
-                      <input
-                        type="number"
-                        value={editingRecord.Amount}
-                        onChange={(e) => setEditingRecord({ ...editingRecord, Amount: parseFloat(e.target.value) })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Payment for the Month of</label>
+                      <select
+                        value={editingRecord["Payment for the Month of"] || ''}
+                        onChange={(e) => setEditingRecord({ ...editingRecord, "Payment for the Month of": e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
+                      >
+                        <option value="">Select month</option>
+                        {months.map((month) => (
+                          <option key={month} value={month}>{month}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Penalty</label>
-                      <input
-                        type="number"
-                        value={editingRecord.Penalty}
-                        onChange={(e) => setEditingRecord({ ...editingRecord, Penalty: parseFloat(e.target.value) })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Amount</label>
+                      <div className="mt-1 relative rounded-md shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">₱</span>
+                        </div>
+                        <input
+                          type="number"
+                          value={editingRecord.Amount}
+                          onChange={(e) => setEditingRecord({ ...editingRecord, Amount: parseFloat(e.target.value) })}
+                          className="block w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Block</label>
-                      <input
-                        type="text"
-                        value={editingRecord.Block}
-                        onChange={(e) => setEditingRecord({ ...editingRecord, Block: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Lot</label>
-                      <input
-                        type="text"
-                        value={editingRecord.Lot}
-                        onChange={(e) => setEditingRecord({ ...editingRecord, Lot: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Penalty</label>
+                      <div className="mt-1 relative rounded-md shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">₱</span>
+                        </div>
+                        <input
+                          type="number"
+                          value={editingRecord.Penalty}
+                          onChange={(e) => setEditingRecord({ ...editingRecord, Penalty: parseFloat(e.target.value) })}
+                          className="block w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Payment Type</label>
                       <select
                         value={editingRecord["Payment Type"] || ''}
                         onChange={(e) => setEditingRecord({ ...editingRecord, "Payment Type": e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
                       >
                         {paymentTypes.filter(type => type !== 'all').map((type) => (
                           <option key={type} value={type}>
@@ -819,12 +854,34 @@ const ReportPage = (): ReactNode => {
                       </select>
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Block</label>
+                      <input
+                        type="text"
+                        value={editingRecord.Block}
+                        onChange={(e) => setEditingRecord({ ...editingRecord, Block: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
+                        placeholder="Enter block number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Lot</label>
+                      <input
+                        type="text"
+                        value={editingRecord.Lot}
+                        onChange={(e) => setEditingRecord({ ...editingRecord, Lot: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
+                        placeholder="Enter lot number"
+                      />
+                    </div>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Project</label>
                     <select
                       value={editingRecord.Project}
                       onChange={(e) => setEditingRecord({ ...editingRecord, Project: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0A0D50] focus:ring-[#0A0D50] sm:text-sm"
                     >
                       {projects.filter(project => project !== 'all').map((project) => (
                         <option key={project} value={project}>
@@ -832,13 +889,22 @@ const ReportPage = (): ReactNode => {
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="submit"
-                      className="mt-4 inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                      Save Changes
-                    </button>
                   </div>
+                </div>
+                <div className="mt-6 flex items-center justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0A0D50]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#0A0D50] rounded-md hover:bg-[#141B7A] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0A0D50]"
+                  >
+                    Save Changes
+                  </button>
                 </div>
               </form>
             </div>

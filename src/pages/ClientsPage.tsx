@@ -683,12 +683,12 @@ const ClientsPage: React.FC = () => {
                 ) : (
                   <>
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th scope="col" className="py-4 pl-6 pr-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      <thead className="sticky top-0 bg-[#0A0D50] z-10">
+                        <tr>
+                          <th scope="col" className="py-4 pl-6 pr-3 text-left text-xs font-medium uppercase tracking-wider text-white">
                             Name
                           </th>
-                          <th scope="col" className="relative py-4 pl-3 pr-6 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                          <th scope="col" className="relative py-4 pl-3 pr-6 text-right text-xs font-medium uppercase tracking-wider text-white">
                             Actions
                           </th>
                         </tr>
