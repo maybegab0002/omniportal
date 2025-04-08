@@ -62,13 +62,12 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, closeMo
     setError(null);
 
     try {
-      // Create auth user with auto-confirmation for development
+      // Create auth user with email confirmation
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // This bypasses email confirmation in development
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: 'https://maybegab0002.github.io/omniportal/login',
           data: {
             is_client: true,
             client_name: clientName,

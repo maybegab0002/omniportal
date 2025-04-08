@@ -15,5 +15,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Set default redirect URL for auth operations
 export const getAuthOptions = () => ({
-  redirectTo: 'https://maybegab0002.github.io/omniportal/auth'
+  redirectTo: 'https://maybegab0002.github.io/omniportal/login'
 })

@@ -376,6 +376,13 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
     setPreviewError(null);
     setIsProcessing(true);
 
+    // Validate file type (only PNG and JPG)
+    if (!file.type.match(/^image\/(png|jpeg|jpg)$/)) {
+      setPreviewError('Only PNG and JPG files are allowed');
+      setIsProcessing(false);
+      return;
+    }
+
     // Validate file size (10MB limit)
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > maxSize) {
@@ -863,11 +870,11 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                                               processFile(e.target.files[0]);
                                             }
                                           }}
-                                          accept="image/*,.pdf"
+                                          accept="image/png,image/jpeg,image/jpg"
                                         />
                                       </span>
                                     </label>
-                                    <p className="text-xs text-gray-500">PNG, JPG, or PDF up to 10MB</p>
+                                    <p className="text-xs text-gray-500">PNG or JPG up to 10MB</p>
                                   </div>
                                 </div>
                               )}
