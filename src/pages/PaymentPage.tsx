@@ -1,7 +1,10 @@
 import React, { useState, useEffect, Fragment, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { Dialog, Transition } from '@headlessui/react';
+import { Dialog, Transition, Combobox } from '@headlessui/react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
 import toast from 'react-hot-toast';
 import { usePayment } from '../contexts/PaymentContext'; // Fixed: contexts instead of context
 
@@ -20,6 +23,7 @@ interface Payment {
   "Payment Type"?: string;
   "Month of Payment": string;
   "MONTHS PAID"?: number | null;
+  "Reference Number"?: string;
 }
 
 // View Receipt Modal Props
@@ -243,6 +247,480 @@ const ViewReceiptModal: React.FC<ViewReceiptModalProps> = ({ isOpen, onClose, re
 };
 
 // Edit Payment Modal Props
+interface Balance {
+  id: number;
+  Name: string;
+  Block: string;
+  Lot: string;
+  Project: string;
+  "MONTHS PAID"?: number | null;
+}
+
+interface UploadPaymentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUpload: () => void;
+}
+
+// Upload Payment Modal Component
+const UploadPaymentModal: React.FC<UploadPaymentModalProps> = ({ isOpen, onClose, onUpload }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedName, setSelectedName] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<string>('');
+  const [selectedBlockLot, setSelectedBlockLot] = useState<string>('');
+  const [amount, setAmount] = useState<string>('');
+  const [penalty, setPenalty] = useState<string>('');
+  const [referenceNumber, setReferenceNumber] = useState<string>('');
+  const [paymentDate, setPaymentDate] = useState<Date | null>(null);
+  const [paymentMonth, setPaymentMonth] = useState<Date | null>(null);
+  const [balanceRecords, setBalanceRecords] = useState<Balance[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Group balance records by name and project
+  const [nameQuery, setNameQuery] = useState('');
+
+  const clientProjects = useMemo(() => {
+    const grouped = balanceRecords.reduce((acc, record) => {
+      if (!acc[record.Name]) {
+        acc[record.Name] = {};
+      }
+      if (!acc[record.Name][record.Project]) {
+        acc[record.Name][record.Project] = [];
+      }
+      acc[record.Name][record.Project].push(record);
+      return acc;
+    }, {} as { [key: string]: { [key: string]: Balance[] } });
+    return grouped;
+  }, [balanceRecords]);
+
+  const sortedClientNames = useMemo(() => {
+    return Object.keys(clientProjects).sort((a, b) => a.localeCompare(b));
+  }, [clientProjects]);
+
+  const filteredClientNames = useMemo(() => {
+    return sortedClientNames.filter(name =>
+      name.toLowerCase().includes(nameQuery.toLowerCase())
+    );
+  }, [sortedClientNames, nameQuery]);
+
+  // Fetch balance records
+  useEffect(() => {
+    const fetchBalances = async () => {
+      const { data, error } = await supabase
+        .from('Balance')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching balances:', error);
+        return;
+      }
+
+      setBalanceRecords(data || []);
+    };
+
+    if (isOpen) {
+      fetchBalances();
+    }
+  }, [isOpen]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setFile(null);
+      setSelectedName('');
+      setSelectedProject('');
+      setSelectedBlockLot('');
+      setAmount('');
+      setPenalty('');
+      setReferenceNumber('');
+      setPaymentDate(null);
+      setPaymentMonth(null);
+      setPreviewUrl(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      // Create preview URL
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+    }
+  };
+
+  const formatToLocalDate = (date: Date | null) => {
+    if (!date) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+  };
+
+  const formatToMonthStart = (date: Date | null) => {
+    if (!date) return null;
+    return new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0);
+  };
+
+  const handleUpload = async () => {
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      if (!file || !selectedName || !selectedProject || !selectedBlockLot || !amount || !paymentDate || !paymentMonth || !referenceNumber) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Create folder path for client's receipts
+      const fileExt = file.name.split('.').pop();
+      const paymentDateFormatted = paymentDate ? new Date(paymentDate).toISOString().split('T')[0] : '';
+      const blockLotFormatted = selectedBlockLot?.replace(/\s+/g, '').replace('Block', '').replace('Lot', '-') || '';
+      const timestamp = new Date().getTime();
+      const fileName = `${paymentDateFormatted}_${blockLotFormatted}_${timestamp}.${fileExt}`;
+      const filePath = `${selectedName.trim()}/${fileName}`;
+      
+      toast.loading('Uploading receipt...');
+      const { error: uploadError, data } = await supabase.storage
+        .from('Payment Receipt')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`Failed to upload receipt: ${uploadError.message}`);
+      }
+
+      if (!data?.path) {
+        throw new Error('No file path returned from upload');
+      }
+
+      toast.loading('Saving payment details...');
+      const { error: dbError } = await supabase
+        .from('Payment')
+        .insert([{
+          "receipt_path": filePath,
+          "Block & Lot": selectedBlockLot,
+          "Payment Amount": parseFloat(amount),
+          "Penalty Amount": penalty ? parseFloat(penalty) : null,
+          "Date of Payment": formatToLocalDate(paymentDate)?.toISOString(),
+          "Month of Payment": formatToMonthStart(paymentMonth)?.toISOString(),
+          "Name": selectedName,
+          "Project": selectedProject,
+          "Status": "Pending",
+          "Reference Number": referenceNumber,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (dbError) {
+        throw new Error(`Error saving payment information: ${dbError.message}`);
+      }
+
+      toast.success('Payment uploaded successfully!');
+      onUpload();
+      onClose();
+    } catch (err: any) {
+      console.error('Error uploading payment:', err);
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-10" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                  Upload Payment
+                </Dialog.Title>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Client Name */}
+                  <div className="col-span-2">
+                    <Combobox
+                      as="div"
+                      value={selectedName}
+                      onChange={(value: string) => {
+                        setSelectedName(value || '');
+                        setSelectedProject('');
+                        setSelectedBlockLot('');
+                      }}
+                    >
+                      <Combobox.Label className="block text-sm font-medium text-gray-700 mb-2">
+                        Client Name *
+                      </Combobox.Label>
+                      <div className="relative">
+                        <Combobox.Input
+                          className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                          onChange={(event) => setNameQuery(event.target.value)}
+                          displayValue={(name: string) => name}
+                          placeholder="Search client name..."
+                        />
+                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center px-2">
+                          <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                        </Combobox.Button>
+
+                        <Transition
+                          as={Fragment}
+                          leave="transition ease-in duration-100"
+                          leaveFrom="opacity-100"
+                          leaveTo="opacity-0"
+                          afterLeave={() => setNameQuery('')}
+                        >
+                          <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                            {filteredClientNames.length === 0 && nameQuery !== '' ? (
+                              <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
+                                Nothing found.
+                              </div>
+                            ) : (
+                              filteredClientNames.map((name) => (
+                                <Combobox.Option
+                                  key={name}
+                                  value={name}
+                                  className={({ active }) =>
+                                    `relative cursor-default select-none py-2 pl-4 pr-4 ${active ? 'bg-blue-600 text-white' : 'text-gray-900'}`
+                                  }
+                                >
+                                  {name}
+                                </Combobox.Option>
+                              ))
+                            )}
+                          </Combobox.Options>
+                        </Transition>
+                      </div>
+                    </Combobox>
+                  </div>
+
+                  {/* Project */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Project *
+                    </label>
+                    <select
+                      value={selectedProject}
+                      onChange={(e) => {
+                        setSelectedProject(e.target.value);
+                        setSelectedBlockLot('');
+                      }}
+                      disabled={!selectedName}
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select Project</option>
+                      {selectedName && Object.keys(clientProjects[selectedName] || {}).map((project) => (
+                        <option key={project} value={project}>{project}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Block & Lot */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Block & Lot *
+                    </label>
+                    <select
+                      value={selectedBlockLot}
+                      onChange={(e) => setSelectedBlockLot(e.target.value)}
+                      disabled={!selectedProject}
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select Block & Lot</option>
+                      {selectedName && selectedProject &&
+                        clientProjects[selectedName][selectedProject].map((record) => (
+                          <option key={`${record.Block}-${record.Lot}`} value={`Block ${record.Block} Lot ${record.Lot}`}>
+                            Block {record.Block} Lot {record.Lot}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Reference Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reference Number *
+                    </label>
+                    <input
+                      type="text"
+                      value={referenceNumber}
+                      onChange={(e) => setReferenceNumber(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholder="Enter reference number"
+                    />
+                  </div>
+
+                  {/* Amount */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Amount *
+                    </label>
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholder="Enter amount"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  {/* Penalty */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Penalty (if applicable)
+                    </label>
+                    <input
+                      type="number"
+                      value={penalty}
+                      onChange={(e) => setPenalty(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholder="Enter penalty amount"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  {/* Date of Payment */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Date of Payment *
+                    </label>
+                    <DatePicker
+                      selected={paymentDate}
+                      onChange={(date) => setPaymentDate(date)}
+                      dateFormat="MMMM d, yyyy"
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholderText="Select date"
+                      maxDate={new Date()}
+                    />
+                  </div>
+
+                  {/* Month of Payment */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Month of Payment *
+                    </label>
+                    <DatePicker
+                      selected={paymentMonth}
+                      onChange={(date) => setPaymentMonth(date)}
+                      dateFormat="MMMM yyyy"
+                      showMonthYearPicker
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholderText="Select month"
+                    />
+                  </div>
+
+                  {/* Receipt Upload */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Receipt Image *
+                    </label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+                      <div className="space-y-1 text-center">
+                        {previewUrl ? (
+                          <div className="relative">
+                            <img src={previewUrl} alt="Receipt preview" className="mx-auto h-32 object-contain" />
+                            <button
+                              onClick={() => {
+                                setFile(null);
+                                setPreviewUrl(null);
+                              }}
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 focus:outline-none"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <div className="flex text-sm text-gray-600">
+                              <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                <span>Upload a file</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleFileChange}
+                                  className="sr-only"
+                                />
+                              </label>
+                              <p className="pl-1">or drag and drop</p>
+                            </div>
+                            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md">
+                    {error}
+                  </div>
+                )}
+
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                    className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Uploading...
+                      </>
+                    ) : (
+                      'Upload'
+                    )}
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
+
 interface EditPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -585,6 +1063,7 @@ const PaymentPage: React.FC = () => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [viewingPayment, setViewingPayment] = useState<Payment | null>(null);
   const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string>('all');
@@ -823,6 +1302,15 @@ const PaymentPage: React.FC = () => {
                 ))}
               </select>
             </div>
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Upload Payment
+            </button>
           </div>
         </div>
 
@@ -841,6 +1329,7 @@ const PaymentPage: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[10%]">Payment Date</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[15%]">Payment For The Month Of</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[10%]">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[10%]">Reference Number</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[10%]">Project</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[10%]">Block & Lot</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-[10%]">Amount</th>
@@ -862,6 +1351,9 @@ const PaymentPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {payment.Name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {payment["Reference Number"] || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {payment.Project}
@@ -1038,7 +1530,6 @@ const PaymentPage: React.FC = () => {
           isOpen={isReceiptModalOpen}
           onClose={() => {
             setIsReceiptModalOpen(false);
-            setReceiptUrl(null);
             setViewingPayment(null);
           }}
           receiptUrl={receiptUrl}
@@ -1054,6 +1545,13 @@ const PaymentPage: React.FC = () => {
             setEditingPayment(null);
           }}
           payment={editingPayment}
+        />
+
+        {/* Upload Payment Modal */}
+        <UploadPaymentModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onUpload={fetchAllPayments}
         />
       </div>
     </div>

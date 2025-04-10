@@ -280,6 +280,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [penalty, setPenalty] = useState<string>('');
+  const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState<Date | null>(null);
   const [paymentMonth, setPaymentMonth] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
@@ -454,7 +455,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
         throw new Error('Please select a receipt file to upload');
       }
 
-      if (!selectedProject || !selectedBlockLot || !amount || !paymentDate || !paymentMonth) {
+      if (!selectedProject || !selectedBlockLot || !amount || !paymentDate || !paymentMonth || !referenceNumber) {
         toast.error('Please fill in all required fields');
         throw new Error('Please fill in all required fields');
       }
@@ -494,6 +495,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
             "Name": clientName,
             "Project": selectedProject, // Add the selected project
             "Status": "Pending", // Changed to capital P to match standard status format
+            "Reference Number": referenceNumber,
             created_at: new Date().toISOString()
           }
         ]);
@@ -515,6 +517,7 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
         setSelectedProject('');
         setAmount('');
         setPenalty('');
+        setReferenceNumber('');
         setPaymentDate(null);
         setPaymentMonth(null);
         setPreviewUrl(null);
@@ -623,6 +626,21 @@ const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                                   <ChevronDownIcon className="h-5 w-5" />
                                 </div>
+                              </div>
+                            </div>
+
+                            {/* Reference Number */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Reference Number</label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={referenceNumber}
+                                  onChange={(e) => setReferenceNumber(e.target.value)}
+                                  className="block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 text-sm focus:border-blue-500 focus:ring-blue-500 transition-all duration-200 hover:border-blue-400"
+                                  placeholder="Enter reference number"
+                                  required
+                                />
                               </div>
                             </div>
 

@@ -5,6 +5,7 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { MagnifyingGlassIcon, DocumentTextIcon, ChartBarIcon, ExclamationTriangleIcon, PencilIcon, PrinterIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import hdcLogo from '../assets/HDC LOGO.png';
+import hheLogo from '../assets/HHE LOGO.png';
 
 interface PaymentRecord {
   id: number;
@@ -153,6 +154,15 @@ const ReportPage = (): ReactNode => {
 
   };
 
+  const calculateTotalsByPaymentType = (records: PaymentRecord[]) => {
+    return records.reduce((acc, record) => {
+      const paymentType = record["Payment Type"] || 'cash';
+      const amount = (parseFloat(record.Amount?.toString() || '0') || 0) + (parseFloat(record.Penalty?.toString() || '0') || 0);
+      acc[paymentType] = (acc[paymentType] || 0) + amount;
+      return acc;
+    }, {} as { [key: string]: number });
+  };
+
   const totals = calculateTotals(filteredRecords);
 
   const getMonthlyTotal = (date: Date | null, project: string) => {
@@ -212,6 +222,7 @@ const ReportPage = (): ReactNode => {
     });
 
     const printTotals = calculateTotals(printRecords);
+    const printTotalsByType = calculateTotalsByPaymentType(printRecords);
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -221,7 +232,9 @@ const ReportPage = (): ReactNode => {
       year: 'numeric'
     });
 
-    const logoBase64 = await convertImageToBase64(hdcLogo);
+    const selectedLogo = selectedPrintProject === 'Havahills Estate' ? hheLogo : hdcLogo;
+    const themeColor = selectedPrintProject === 'Havahills Estate' ? '#094D2F' : '#0A0D50';
+    const logoBase64 = await convertImageToBase64(selectedLogo);
     const html = `
       <html>
         <head>
@@ -231,149 +244,265 @@ const ReportPage = (): ReactNode => {
               margin: 0;
               size: A4;
             }
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
             body { 
-              font-family: Arial, sans-serif; 
+              font-family: 'Inter', system-ui, -apple-system, sans-serif;
               margin: 0;
               padding: 0;
-              color: #333;
-              background: linear-gradient(45deg, #0A0D50 25%, transparent 25%) -50px 0,
-                        linear-gradient(-45deg, #0A0D50 25%, transparent 25%) -50px 0,
-                        linear-gradient(45deg, transparent 75%, #0A0D50 75%),
-                        linear-gradient(-45deg, transparent 75%, #0A0D50 75%);
-              background-size: 10px 10px;
-              background-color: white;
+              color: #1f2937;
+              line-height: 1.5;
+              background-color: #f3f4f6;
             }
             .report-wrapper {
               background: white;
-              margin: 0;
+              margin: 0 auto;
               min-height: 100vh;
               position: relative;
               z-index: 1;
+              max-width: 1200px;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             }
             .pattern-border {
               position: fixed;
               top: 0;
               left: 0;
               right: 0;
-              height: 80px;
-              background: repeating-linear-gradient(
-                45deg,
-                #0A0D50,
-                #0A0D50 10px,
-                #141B7A 10px,
-                #141B7A 20px
-              );
-              opacity: 0.1;
-            }
-            .pattern-border-bottom {
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              right: 0;
-              height: 40px;
-              background: repeating-linear-gradient(
-                45deg,
-                #0A0D50,
-                #0A0D50 10px,
-                #141B7A 10px,
-                #141B7A 20px
-              );
-              opacity: 0.1;
+              height: 6px;
+              background: linear-gradient(90deg, #0A0D50, #141B7A);
             }
             .content {
-              padding: 40px;
+              padding: 24px;
               position: relative;
               z-index: 2;
             }
             .header {
-              margin-bottom: 40px;
+              margin-bottom: 24px;
               position: relative;
               display: flex;
-              align-items: flex-start;
+              align-items: center;
               justify-content: space-between;
+              padding-bottom: 16px;
+              border-bottom: 1px solid #e5e7eb;
             }
             .header-left {
               display: flex;
               align-items: center;
-              gap: 15px;
+              gap: 16px;
             }
             .logo {
               width: 60px;
               height: auto;
             }
             .report-title {
-              color: #0A0D50;
-              font-size: 24px;
-              font-weight: bold;
+              color: ${themeColor};
+              font-size: 20px;
+              font-weight: 600;
               margin: 0;
-              border-bottom: 2px solid #0A0D50;
-              padding-bottom: 5px;
+              letter-spacing: -0.025em;
             }
             .report-info {
               text-align: right;
-              font-size: 12px;
-              color: #666;
+              color: #4b5563;
             }
             .report-info p {
-              margin: 3px 0;
+              margin: 2px 0;
+              font-size: 12px;
+              line-height: 1.4;
             }
             table { 
               width: 100%; 
               border-collapse: separate;
               border-spacing: 0;
-              margin-top: 20px;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              margin: 20px 0;
+              border-radius: 6px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             }
             th { 
-              background-color: #0A0D50; 
+              background-color: ${themeColor}; 
               color: white;
-              padding: 12px;
+              padding: 10px;
               text-align: left;
-              font-size: 12px;
-              position: relative;
-            }
-            th:after {
-              content: '';
-              position: absolute;
-              bottom: 0;
-              left: 0;
-              width: 100%;
-              height: 2px;
-              background: linear-gradient(90deg, #0A0D50, #141B7A);
+              font-size: 11px;
+              font-weight: 500;
+              letter-spacing: 0.05em;
+              text-transform: uppercase;
             }
             td { 
-              padding: 12px;
-              border-bottom: 1px solid #eee;
+              padding: 10px;
+              border-bottom: 1px solid #e5e7eb;
               font-size: 12px;
               background: white;
+              color: #374151;
+            }
+            tr:last-child td {
+              border-bottom: none;
             }
             tr:hover td {
-              background-color: #f8f9fc;
+              background-color: #f9fafb;
+            }
+            .total-section {
+              margin: 20px 0;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
             }
             .totals {
-              margin-top: 30px;
-              padding: 20px;
-              background: #f8f9fc;
-              border-radius: 4px;
-              border-left: 4px solid #0A0D50;
+              background-color: white;
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             }
             .totals p {
-              margin: 8px 0;
+              margin: 0;
               display: flex;
               justify-content: space-between;
+              align-items: center;
               font-size: 12px;
+              padding: 8px 0;
+              border-bottom: 1px solid #e5e7eb;
+              color: #4b5563;
+            }
+            .totals p:last-child {
+              border-bottom: none;
             }
             .total-amount {
-              font-weight: bold;
+              font-weight: 600;
+              color: ${themeColor};
+              font-size: 13px;
+              font-variant-numeric: tabular-nums;
+            }
+            .breakdown-section {
+              background-color: white;
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .breakdown-title {
+              font-size: 13px;
+              font-weight: 600;
+              color: ${themeColor};
+              margin-bottom: 12px;
+              padding-bottom: 8px;
+              border-bottom: 2px solid #e5e7eb;
+              letter-spacing: -0.025em;
+            }
+            .breakdown-item {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 8px 0;
+              border-bottom: 1px solid #e5e7eb;
+              font-size: 12px;
+              color: #4b5563;
+            }
+            .breakdown-item span:last-child {
+              font-weight: 500;
+              color: ${themeColor};
+              font-variant-numeric: tabular-nums;
+            }
+            .breakdown-item:last-child {
+              border-bottom: none;
+            }
+            .first-page {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 40px;
+              height: auto;
+              margin-bottom: 40px;
+            }
+            .center-content {
+              text-align: center;
+              max-width: 600px;
+              margin: 0 auto;
+            }
+            .large-logo {
+              width: 200px;
+              height: auto;
+              margin-bottom: 32px;
+            }
+            .main-title {
+              font-size: 36px;
+              font-weight: 700;
+              color: ${themeColor};
+              margin: 0 0 40px;
+              letter-spacing: -0.025em;
+            }
+            .report-details {
+              display: flex;
+              flex-direction: column;
+              gap: 16px;
+              margin-top: 40px;
+              padding: 24px;
+              background: #f8fafc;
+              border-radius: 12px;
+            }
+            .detail-item {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 8px 0;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .detail-item:last-child {
+              border-bottom: none;
+            }
+            .detail-label {
+              font-size: 14px;
+              font-weight: 500;
+              color: #4b5563;
+            }
+            .detail-value {
+              font-size: 14px;
+              font-weight: 600;
               color: #0A0D50;
             }
             @media print {
               body { background: none; }
               .pattern-border, .pattern-border-bottom { display: none; }
-              th { background-color: #0A0D50 !important; color: white !important; }
+              th { background-color: ${themeColor} !important; color: white !important; }
               .report-wrapper { margin: 0; box-shadow: none; }
               thead { display: table-header-group; }
               tfoot { display: table-footer-group; }
+              .first-page {
+                height: auto;
+                page-break-after: always;
+              }
+              .page-content {
+                page-break-before: always;
+              }
+              .page-break {
+                page-break-before: always;
+                padding-top: 20px;
+              }
+              .page-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 24px;
+                border-bottom: 1px solid #e5e7eb;
+                padding-bottom: 16px;
+              }
+              .page-header-left {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+              }
+              .page-header-title {
+                font-size: 16px;
+                font-weight: 600;
+                color: ${themeColor};
+              }
+              .page-header-subtitle {
+                font-size: 12px;
+                color: #4b5563;
+              }
+              .page-header-right {
+                text-align: right;
+                font-size: 12px;
+                color: #4b5563;
+              }
             }
           </style>
         </head>
@@ -382,19 +511,40 @@ const ReportPage = (): ReactNode => {
           <div class="pattern-border-bottom"></div>
           <div class="report-wrapper">
             <div class="content">
-              <div class="header">
-                <div class="header-left">
-                  <img src="${logoBase64}" alt="HDC Logo" class="logo">
-                  <h1 class="report-title">Payment Report</h1>
-                </div>
-                <div class="report-info">
-                  <p>Generated on: ${currentDate}</p>
-                  <p>Project: ${selectedPrintProject}</p>
-                  <p>Date: ${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              <div class="first-page">
+                <div class="center-content">
+                  <img src="${logoBase64}" alt="HDC Logo" class="large-logo">
+                  <h1 class="main-title">Payment Report</h1>
+                  <div class="report-details">
+                    <div class="detail-item">
+                      <span class="detail-label">Project:</span>
+                      <span class="detail-value">${selectedPrintProject}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Report Date:</span>
+                      <span class="detail-value">${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Generated on:</span>
+                      <span class="detail-value">${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-          <table>
-            <thead>
+          <div class="page-content">
+            <div class="page-header">
+              <div class="page-header-left">
+                <div class="page-header-title">Payment Report</div>
+                <div class="page-header-subtitle">Project: ${selectedPrintProject}</div>
+              </div>
+              <div class="report-info">
+                <p>Generated on: ${currentDate}</p>
+                <p>Project: ${selectedPrintProject}</p>
+                <p>Date: ${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              </div>
+            </div>
+            <table>
+              <thead>
               <tr>
                 <th>Date</th>
                 <th>Payment for the Month of</th>
@@ -404,7 +554,6 @@ const ReportPage = (): ReactNode => {
                 <th>Amount</th>
                 <th>Penalty</th>
                 <th>Payment Type</th>
-                <th>Payment Month</th>
               </tr>
             </thead>
             <tbody>
@@ -418,18 +567,41 @@ const ReportPage = (): ReactNode => {
                   <td>₱${record.Amount.toLocaleString()}</td>
                   <td>${record.Penalty ? `₱${record.Penalty.toLocaleString()}` : 'N/A'}</td>
                   <td>${record["Payment Type"]}</td>
-                  <td>${record["Payment for the Month of"] || ''}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-          <div class="totals mb-4">
-            <p><span>Total Amount:</span> <span class="total-amount">₱${printTotals.amount.toLocaleString()}</span></p>
-            <p><span>Total Penalty:</span> <span class="total-amount">₱${printTotals.penalty.toLocaleString()}</span></p>
-            <p><span>Grand Total:</span> <span class="total-amount">₱${(printTotals.amount + printTotals.penalty).toLocaleString()}</span></p>
-            <p><span>Monthly Total (${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):</span> <span class="total-amount">₱${getMonthlyTotal(selectedPrintDate, selectedPrintProject).toLocaleString()}</span></p>
-            <p><span>Daily Total (${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}):</span> <span class="total-amount">₱${getDailyTotal(selectedPrintDate, selectedPrintProject).toLocaleString()}</span></p>
-            </div>
+              <div class="page-break">
+                <div class="page-header">
+                  <div class="page-header-left">
+                    <div class="page-header-title">Payment Summary</div>
+                    <div class="page-header-subtitle">Project: ${selectedPrintProject}</div>
+                  </div>
+                  <div class="page-header-right">
+                    <div>Generated on: ${currentDate}</div>
+                    <div>Date: ${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                  </div>
+                </div>
+                <div class="total-section">
+                <div class="totals mb-4">
+                  <p><span>Total Amount:</span> <span class="total-amount">${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(printTotals.amount)}</span></p>
+                  <p><span>Total Penalty:</span> <span class="total-amount">${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(printTotals.penalty)}</span></p>
+                  <p><span>Grand Total:</span> <span class="total-amount">${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(printTotals.amount + printTotals.penalty)}</span></p>
+                  <p><span>Monthly Total (${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):</span> <span class="total-amount">${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(getMonthlyTotal(selectedPrintDate, selectedPrintProject))}</span></p>
+                  <p><span>Daily Total (${selectedPrintDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}):</span> <span class="total-amount">${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(getDailyTotal(selectedPrintDate, selectedPrintProject))}</span></p>
+                </div>
+                <div class="breakdown-section">
+                  <p class="breakdown-title">Payment Type Breakdown:</p>
+                  ${Object.entries(printTotalsByType)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([type, amount]) => `
+                    <div class="breakdown-item">
+                      <span>${type}</span>
+                      <span>${new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
           </div>
         </body>
       </html>
