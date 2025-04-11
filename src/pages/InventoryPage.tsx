@@ -1,8 +1,7 @@
-import React, { useState, useEffect, Fragment, useRef } from 'react';
-import { Transition } from '@headlessui/react';
-import { HomeIcon, HomeModernIcon, PencilIcon, XMarkIcon, ArrowPathIcon, CurrencyDollarIcon, UserIcon, BanknotesIcon, UsersIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { HomeIcon, HomeModernIcon, ArrowPathIcon, XMarkIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { supabase } from '../lib/supabaseClient';
-import { Dialog} from '@headlessui/react';
 
 interface LivingWaterProperty {
   id: number;
@@ -68,6 +67,11 @@ interface HavahillsProperty {
 
 type Property = LivingWaterProperty | HavahillsProperty;
 
+// Function to check if property is Living Water
+const isLivingWaterProperty = (property: Property): property is LivingWaterProperty => {
+  return 'Owner' in property;
+};
+
 const projects = [
   { 
     id: 'LivingWater', 
@@ -89,18 +93,15 @@ const statusOptions = [
 
 const InventoryPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState(projects[0]);
-  const [properties, setProperties] = useState<Property[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
+  const [propertyToReopen, setPropertyToReopen] = useState<Property | null>(null);
+  const [isSellModalOpen, setIsSellModalOpen] = useState(false);
+  const [propertyToSell, setPropertyToSell] = useState<Property | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [currentProperty, setCurrentProperty] = useState<Property | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
-  const [propertyToReopen, setPropertyToReopen] = useState<Property | null>(null);
-
   useEffect(() => {
     fetchProperties();
   }, [selectedProject]);
@@ -325,29 +326,6 @@ const InventoryPage: React.FC = () => {
                 </td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center space-x-2">
-                    {property.Status?.toLowerCase() === 'available' ? (
-                      <button
-                        onClick={() => handleEditProperty(property)}
-                        className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200"
-                        title="Sell Property"
-                      >
-                        <span className="flex items-center space-x-1">
-                          <HomeIcon className="h-4 w-4" />
-                          <span>Sell</span>
-                        </span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleEditProperty(property)}
-                        className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200"
-                        title="Edit Property"
-                      >
-                        <span className="flex items-center space-x-1">
-                          <PencilIcon className="h-4 w-4" />
-                          <span>Edit</span>
-                        </span>
-                      </button>
-                    )}
                     {property.Status?.toLowerCase() === 'sold' && (
                       <button
                         onClick={() => handleReopenProperty(property)}
@@ -357,6 +335,18 @@ const InventoryPage: React.FC = () => {
                         <span className="flex items-center space-x-1">
                           <ArrowPathIcon className="h-4 w-4" />
                           <span>Reopen</span>
+                        </span>
+                      </button>
+                    )}
+                    {property.Status?.toLowerCase() === 'available' && (
+                      <button
+                        onClick={() => handleSellProperty(property)}
+                        className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200"
+                        title="Sell Property"
+                      >
+                        <span className="flex items-center space-x-1">
+                          <ShoppingCartIcon className="h-4 w-4" />
+                          <span>Sell</span>
                         </span>
                       </button>
                     )}
@@ -451,29 +441,6 @@ const InventoryPage: React.FC = () => {
                 </td>
                 <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center space-x-2">
-                    {property.Status?.toLowerCase() === 'available' ? (
-                      <button
-                        onClick={() => handleEditProperty(property)}
-                        className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200"
-                        title="Sell Property"
-                      >
-                        <span className="flex items-center space-x-1">
-                          <HomeIcon className="h-4 w-4" />
-                          <span>Sell</span>
-                        </span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleEditProperty(property)}
-                        className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors duration-200"
-                        title="Edit Property"
-                      >
-                        <span className="flex items-center space-x-1">
-                          <PencilIcon className="h-4 w-4" />
-                          <span>Edit</span>
-                        </span>
-                      </button>
-                    )}
                     {property.Status?.toLowerCase() === 'sold' && (
                       <button
                         onClick={() => handleReopenProperty(property)}
@@ -483,6 +450,18 @@ const InventoryPage: React.FC = () => {
                         <span className="flex items-center space-x-1">
                           <ArrowPathIcon className="h-4 w-4" />
                           <span>Reopen</span>
+                        </span>
+                      </button>
+                    )}
+                    {property.Status?.toLowerCase() === 'available' && (
+                      <button
+                        onClick={() => handleSellProperty(property)}
+                        className="text-green-600 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200"
+                        title="Sell Property"
+                      >
+                        <span className="flex items-center space-x-1">
+                          <ShoppingCartIcon className="h-4 w-4" />
+                          <span>Sell</span>
                         </span>
                       </button>
                     )}
@@ -789,68 +768,63 @@ const InventoryPage: React.FC = () => {
     });
   };
 
-  // Temporary ref to store form values without triggering re-renders
-  const formValuesRef = useRef<any>({});
 
-  // Only update state when opening modal
-  useEffect(() => {
-    if (currentProperty) {
-      formValuesRef.current = { ...currentProperty };
-    }
-  }, [currentProperty]);
 
-  // Function to handle field changes with no re-rendering
-  const handleFieldChange = (field: string, value: string) => {
-    // Just update the ref without triggering any state updates or re-renders
-    if (formValuesRef.current) {
-      formValuesRef.current[field] = value;
-    }
-  };
 
-  // Function to save property changes
-  const handleSaveProperty = async () => {
-    // Now update the real state just once before saving
-    if (formValuesRef.current) {
-      setCurrentProperty(formValuesRef.current);
-    }
 
-    if (!formValuesRef.current) return;
 
-    setIsSaving(true);
-    setSaveError(null); // Clear any previous errors
 
-    try {
-      const { error } = await supabase
-        .from(selectedProject.id === 'LivingWater' ? 'Living Water Subdivision' : 'Havahills Estate')
-        .update(formValuesRef.current)
-        .eq('id', formValuesRef.current.id);
 
-      if (error) throw error;
 
-      // Refresh the properties list
-      await fetchProperties();
-      setIsEditModalOpen(false);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save property');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Function to check if property is Living Water
-  const isLivingWaterProperty = (property: Property): property is LivingWaterProperty => {
-    return 'Owner' in property;
-  };
-
-  // Function to check if property is Havahills
-  const isHavahillsProperty = (property: Property): property is HavahillsProperty => {
-    return 'Price' in property;
-  };
 
   // Function to handle reopening a sold property
   const handleReopenProperty = async (property: Property) => {
     setPropertyToReopen(property);
     setIsReopenModalOpen(true);
+  };
+
+  // Function to handle selling a property
+  const handleSellProperty = (property: Property) => {
+    setPropertyToSell(property);
+    setIsSellModalOpen(true);
+  };
+
+  // Function to handle confirming property sale
+  const confirmSell = async () => {
+    if (!propertyToSell) return;
+
+    try {
+      const tableName = selectedProject.id === 'LivingWater' ? 'Living Water Subdivision' : 'Havahills Estate';
+      const updateData: any = {
+        ...propertyToSell,
+        Status: 'Sold',
+        'Date of Reservation': new Date().toISOString().split('T')[0]
+      };
+
+      // Remove id and created_at from update data
+      delete updateData.id;
+      delete updateData.created_at;
+
+      // Update the property in the database
+      const { error: propertyError } = await supabase
+        .from(tableName)
+        .update(updateData)
+        .eq('id', propertyToSell.id);
+
+      if (propertyError) throw propertyError;
+
+      // Update local state
+      setProperties(prevProperties =>
+        prevProperties.map(prop =>
+          prop.id === propertyToSell.id ? { ...prop, ...updateData } : prop
+        )
+      );
+
+      setIsSellModalOpen(false);
+      setPropertyToSell(null);
+    } catch (error: any) {
+      console.error('Error selling property:', error.message);
+    }
   };
 
   const confirmReopen = async () => {
@@ -912,6 +886,7 @@ const InventoryPage: React.FC = () => {
         updateData['Date of Reservation'] = '';
         updateData['Seller Name'] = '';
         updateData['Broker / Realty'] = '';
+        updateData['Sales Director'] = '';
       } else {
         // Havahills property fields
         updateData['Buyers Name'] = '';
@@ -921,6 +896,8 @@ const InventoryPage: React.FC = () => {
         updateData['Date of Reservation'] = '';
         updateData['Seller Name'] = '';
         updateData['Broker'] = '';
+        updateData['Sales Director'] = '';
+        updateData['Mode of Payment'] = '';
       }
 
       // Update the property in the database
@@ -945,22 +922,360 @@ const InventoryPage: React.FC = () => {
     }
   };
 
-  // Function to handle opening the edit modal
-  const handleEditProperty = (property: Property) => {
-    setCurrentProperty(property);
-    setIsEditModalOpen(true);
-    setSaveError(null);
-  };
-
-  // Function to handle closing the edit modal
-  const handleCloseEditModal = () => {
-    setIsEditModalOpen(false);
-    setCurrentProperty(null);
-    setSaveError(null);
-  };
-
   return (
     <div className="p-6">
+      {/* Sell Modal */}
+      <Transition appear show={isSellModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setIsSellModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Sell Property
+                  </Dialog.Title>
+
+                  {propertyToSell && (
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      {/* Living Water specific fields */}
+                      {isLivingWaterProperty(propertyToSell) && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Block</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.Block || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, Block: e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Lot</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.Lot || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, Lot: e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Owner</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.Owner || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, Owner: e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Due Date 15/30</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Due Date 15/30"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "Due Date 15/30": e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">First Due Month</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["First Due Month"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "First Due Month": e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Amount</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.Amount || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, Amount: parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Broker / Realty</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Broker / Realty"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "Broker / Realty": e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Reservation</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.Reservation || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, Reservation: parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Lot Area</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Lot Area"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "Lot Area": parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Price per sqm</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Price per sqm"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "Price per sqm": parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">TCP</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.TCP || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, TCP: parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">TSP</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.TSP || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, TSP: parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">MISC FEE</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["MISC FEE"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "MISC FEE": parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Net Contract Price</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Net Contract Price"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "Net Contract Price": parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Monthly Amortization</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Monthly Amortization"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "Monthly Amortization": parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">1st MA net of Advance Payment</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["1st MA net of Advance Payment"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "1st MA net of Advance Payment": parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">2ndto60th MA</label>
+                            <input
+                              type="number"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["2ndto60th MA"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as LivingWaterProperty, "2ndto60th MA": parseFloat(e.target.value) } : null)}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Havahills specific fields */}
+                      {!isLivingWaterProperty(propertyToSell) && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Buyer's Name</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Buyers Name"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as HavahillsProperty, "Buyers Name": e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Due</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell.Due || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as HavahillsProperty, Due: e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">First Due</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["First Due"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as HavahillsProperty, "First Due": e.target.value } : null)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Mode of Payment</label>
+                            <input
+                              type="text"
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                              value={propertyToSell["Mode of Payment"] || ''}
+                              onChange={(e) => setPropertyToSell(prev => prev ? { ...prev as HavahillsProperty, "Mode of Payment": e.target.value } : null)}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Common fields */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Realty</label>
+                        <input
+                          type="text"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          value={propertyToSell.Realty || ''}
+                          onChange={(e) => setPropertyToSell(prev => prev ? { ...prev, Realty: e.target.value } : null)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Seller Name</label>
+                        <input
+                          type="text"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          value={propertyToSell["Seller Name"] || ''}
+                          onChange={(e) => setPropertyToSell(prev => prev ? { ...prev, "Seller Name": e.target.value } : null)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Sales Director</label>
+                        <input
+                          type="text"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          value={propertyToSell["Sales Director"] || ''}
+                          onChange={(e) => setPropertyToSell(prev => prev ? { ...prev, "Sales Director": e.target.value } : null)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-green-100 px-4 py-2 text-sm font-medium text-green-900 hover:bg-green-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                      onClick={confirmSell}
+                    >
+                      Sell Property
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                      onClick={() => setIsSellModalOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Reopen Modal */}
+      <Transition appear show={isReopenModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setIsReopenModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900"
+                  >
+                    Reopen Property
+                  </Dialog.Title>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to reopen this property? This will delete all associated client data and set the property status back to Available.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-red-100 px-4 py-2 text-sm font-medium text-red-900 hover:bg-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                      onClick={confirmReopen}
+                    >
+                      Reopen
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                      onClick={() => setIsReopenModalOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
       <div className="sm:flex sm:items-center mb-8">
         <div className="sm:flex-auto">
           <h1 className="text-xl font-semibold text-gray-900">Inventory</h1>
@@ -1102,689 +1417,9 @@ const InventoryPage: React.FC = () => {
           )}
         </div>
       )}
-
-      {isEditModalOpen && currentProperty && (
-        <Transition appear show={isEditModalOpen} as={Fragment}>
-          <Dialog as="div" className="relative z-10" onClose={handleCloseEditModal}>
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="fixed inset-0 bg-black bg-opacity-25" />
-            </Transition.Child>
-
-            <div className="fixed inset-0 overflow-y-auto">
-              <div className="flex min-h-full items-center justify-center p-4 text-center">
-                <Transition.Child
-                  as={Fragment}
-                  enter="ease-out duration-300"
-                  enterFrom="opacity-0 scale-95"
-                  enterTo="opacity-100 scale-100"
-                  leave="ease-in duration-200"
-                  leaveFrom="opacity-100 scale-100"
-                  leaveTo="opacity-0 scale-95"
-                >
-                  <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white shadow-xl transition-all sm:w-full sm:max-w-4xl">
-                    {/* Header */}
-                    <div className="bg-white px-4 py-4 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            <HomeModernIcon className="h-6 w-6 text-blue-600" />
-                          </div>
-                          <div>
-                            <Dialog.Title className="text-base font-semibold leading-6 text-gray-900">
-                              Edit Property Details
-                            </Dialog.Title>
-                            <p className="mt-1 text-sm text-gray-500">
-                              Block {currentProperty?.Block}, Lot {currentProperty?.Lot}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                          onClick={handleCloseEditModal}
-                        >
-                          <span className="sr-only">Close</span>
-                          <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="px-4 py-4 max-h-[calc(100vh-16rem)] overflow-y-auto">
-                      {isLivingWaterProperty(currentProperty) ? (
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-4">
-                          {/* Property Details Section */}
-                          <div className="md:col-span-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-blue-50 rounded-lg">
-                                  <HomeIcon className="h-4 w-4 text-blue-600" />
-                                </div>
-                                Property Details
-                              </h4>
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Block</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Block || ''}
-                                    onChange={(e) => handleFieldChange('Block', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter block number"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Lot</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Lot || ''}
-                                    onChange={(e) => handleFieldChange('Lot', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter lot number"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Lot Area</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Lot Area"] || ''}
-                                    onChange={(e) => handleFieldChange("Lot Area", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter lot area"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Pricing Section */}
-                          <div className="md:col-span-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-green-50 rounded-lg">
-                                  <CurrencyDollarIcon className="h-4 w-4 text-green-600" />
-                                </div>
-                                Pricing
-                              </h4>
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Price per sqm</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Price per sqm"] || ''}
-                                    onChange={(e) => handleFieldChange("Price per sqm", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter price per sqm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">TCP</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.TCP || ''}
-                                    onChange={(e) => handleFieldChange('TCP', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter TCP"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">TSP</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.TSP || ''}
-                                    onChange={(e) => handleFieldChange('TSP', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter TSP"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">MISC FEE</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["MISC FEE"] || ''}
-                                    onChange={(e) => handleFieldChange("MISC FEE", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter misc fee"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Payment Details */}
-                          <div className="md:col-span-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-purple-50 rounded-lg">
-                                  <BanknotesIcon className="h-4 w-4 text-purple-600" />
-                                </div>
-                                Payment
-                              </h4>
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Net Contract Price</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Net Contract Price"] || ''}
-                                    onChange={(e) => handleFieldChange("Net Contract Price", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter net contract price"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Monthly Amortization</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Monthly Amortization"] || ''}
-                                    onChange={(e) => handleFieldChange("Monthly Amortization", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter monthly amortization"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Reservation</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Reservation || ''}
-                                    onChange={(e) => handleFieldChange('Reservation', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter reservation amount"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Owner Information */}
-                          <div className="md:col-span-6">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-yellow-50 rounded-lg">
-                                  <UserIcon className="h-4 w-4 text-yellow-600" />
-                                </div>
-                                Owner Information
-                              </h4>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Owner</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Owner || ''}
-                                    onChange={(e) => handleFieldChange('Owner', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter owner name"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Date of Reservation</label>
-                                  <input
-                                    type="date"
-                                    value={formValuesRef.current?.["Date of Reservation"] || ''}
-                                    onChange={(e) => handleFieldChange("Date of Reservation", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter date of reservation"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Due Dates */}
-                          <div className="md:col-span-6">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-red-50 rounded-lg">
-                                  <CalendarIcon className="h-4 w-4 text-red-600" />
-                                </div>
-                                Due Dates
-                              </h4>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Due Date</label>
-                                  <select
-                                    value={formValuesRef.current?.["Due Date 15/30"] || ''}
-                                    onChange={(e) => handleFieldChange("Due Date 15/30", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                  >
-                                    <option value="">Select Due Date</option>
-                                    <option value="15">Every 15th</option>
-                                    <option value="30">Every 30th</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">First Due Month</label>
-                                  <input
-                                    type="month"
-                                    value={formValuesRef.current?.["First Due Month"] || ''}
-                                    onChange={(e) => handleFieldChange("First Due Month", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter first due month"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Sales Information */}
-                          <div className="md:col-span-12">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-indigo-50 rounded-lg">
-                                  <UsersIcon className="h-4 w-4 text-indigo-600" />
-                                </div>
-                                Sales Information
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Sales Director</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Sales Director"] || ''}
-                                    onChange={(e) => handleFieldChange("Sales Director", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter sales director"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Broker / Realty</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Broker / Realty"] || ''}
-                                    onChange={(e) => handleFieldChange("Broker / Realty", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter broker / realty"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Seller Name</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Seller Name"] || ''}
-                                    onChange={(e) => handleFieldChange("Seller Name", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter seller name"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : isHavahillsProperty(currentProperty) && (
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-4">
-                          {/* Property Details Section */}
-                          <div className="md:col-span-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-blue-50 rounded-lg">
-                                  <HomeIcon className="h-4 w-4 text-blue-600" />
-                                </div>
-                                Property Details
-                              </h4>
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Block</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Block || ''}
-                                    onChange={(e) => handleFieldChange('Block', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter block number"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Lot</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Lot || ''}
-                                    onChange={(e) => handleFieldChange('Lot', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter lot number"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Lot Size</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Lot Size"] || ''}
-                                    onChange={(e) => handleFieldChange("Lot Size", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter lot size"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Pricing Section */}
-                          <div className="md:col-span-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-green-50 rounded-lg">
-                                  <CurrencyDollarIcon className="h-4 w-4 text-green-600" />
-                                </div>
-                                Pricing
-                              </h4>
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Price</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Price || ''}
-                                    onChange={(e) => handleFieldChange('Price', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter price"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">TCP</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.TCP || ''}
-                                    onChange={(e) => handleFieldChange('TCP', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter TCP"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">TSP</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.TSP || ''}
-                                    onChange={(e) => handleFieldChange('TSP', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter TSP"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Misc Fee</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.["Misc Fee"] || ''}
-                                    onChange={(e) => handleFieldChange("Misc Fee", e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter misc fee"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Payment Details */}
-                          <div className="md:col-span-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-purple-50 rounded-lg">
-                                  <BanknotesIcon className="h-4 w-4 text-purple-600" />
-                                </div>
-                                Payment
-                              </h4>
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Price</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Price || ''}
-                                    onChange={(e) => handleFieldChange('Price', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter price"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Reservation Fee</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Reservation || ''}
-                                    onChange={(e) => handleFieldChange('Reservation', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter reservation fee"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Buyer Information */}
-                          <div className="md:col-span-6">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-yellow-50 rounded-lg">
-                                  <UserIcon className="h-4 w-4 text-yellow-600" />
-                                </div>
-                                Buyer Information
-                              </h4>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Buyers Name</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.['Buyers Name'] || ''}
-                                    onChange={(e) => handleFieldChange('Buyers Name', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter buyers name"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Date of Reservation</label>
-                                  <input
-                                    type="date"
-                                    value={formValuesRef.current?.['Date of Reservation'] || ''}
-                                    onChange={(e) => handleFieldChange('Date of Reservation', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter date of reservation"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Due Dates */}
-                          <div className="md:col-span-6">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-red-50 rounded-lg">
-                                  <CalendarIcon className="h-4 w-4 text-red-600" />
-                                </div>
-                                Due Dates
-                              </h4>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Due</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Due || ''}
-                                    onChange={(e) => handleFieldChange('Due', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter due"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">First Due</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.['First Due'] || ''}
-                                    onChange={(e) => handleFieldChange('First Due', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter first due"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Sales Information */}
-                          <div className="md:col-span-12">
-                            <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-                              <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                                <div className="p-1.5 bg-indigo-50 rounded-lg">
-                                  <UsersIcon className="h-4 w-4 text-indigo-600" />
-                                </div>
-                                Sales Information
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Sales Director</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.['Sales Director'] || ''}
-                                    onChange={(e) => handleFieldChange('Sales Director', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter sales director"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Broker</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.Broker || ''}
-                                    onChange={(e) => handleFieldChange('Broker', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter broker"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1.5 transition-colors">Seller Name</label>
-                                  <input
-                                    type="text"
-                                    value={formValuesRef.current?.['Seller Name'] || ''}
-                                    onChange={(e) => handleFieldChange('Seller Name', e.target.value)}
-                                    className="block w-full rounded-lg border-0 py-2.5 px-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 hover:ring-gray-400 transition-all"
-                                    placeholder="Enter seller name"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="px-6 py-4 sm:flex sm:flex-row-reverse sm:px-6 bg-gray-50 border-t border-gray-100">
-                      <button
-                        type="button"
-                        onClick={handleSaveProperty}
-                        disabled={isSaving}
-                        className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSaving ? (
-                          <>
-                            <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          'Save Changes'
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hover:shadow active:scale-95 transition-all sm:mt-0 sm:w-auto"
-                        onClick={() => setIsEditModalOpen(false)}
-                      >
-                        Cancel
-                      </button>
-                      {saveError && (
-                        <div className="mt-3 p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-                          <p className="flex items-center">
-                            <XMarkIcon className="w-4 h-4 mr-2" />
-                            {saveError}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </Dialog.Panel>
-                </Transition.Child>
-              </div>
-            </div>
-          </Dialog>
-        </Transition>
-      )}
-      
-      {/* Reopen Confirmation Modal */}
-      <Transition appear show={isReopenModalOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="fixed inset-0 z-10 overflow-y-auto"
-          onClose={() => setIsReopenModalOpen(false)}
-        >
-          <div className="min-h-screen px-4 text-center">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="fixed inset-0 bg-black/30" />
-            </Transition.Child>
-
-            <span
-              className="inline-block h-screen align-middle"
-              aria-hidden="true"
-            >
-              &#8203;
-            </span>
-
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <Dialog.Title
-                      as="h3"
-                      className="text-lg leading-6 font-medium text-gray-900"
-                    >
-                      Confirm Reopen Property
-                    </Dialog.Title>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        Are you sure you want to reopen this property? This will clear all buyer information and mark the property as Available.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
-                  <button
-                    type="button"
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150"
-                    onClick={confirmReopen}
-                  >
-                    Reopen Property
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-3 sm:mt-0 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 hover:shadow active:scale-95 transition-all"
-                    onClick={() => setIsReopenModalOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </Transition.Child>
-          </div>
-        </Dialog>
-      </Transition>
     </div>
+
+      
   );
 };
 

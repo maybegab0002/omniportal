@@ -2332,6 +2332,13 @@ const ClientDashboardPage: React.FC = () => {
                             <div className="flex-1">
                               <h4 className="font-medium text-gray-900">{ticket.Subject}</h4>
                               <p className="text-sm text-gray-600 mt-1 line-clamp-2">{ticket.Description}</p>
+                              {ticket.Response && (
+                                <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                                  <p className="text-sm text-blue-700">
+                                    <span className="font-medium">Response:</span> {ticket.Response}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                             <div className="ml-4 flex-shrink-0">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -2364,11 +2371,11 @@ const ClientDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
 
           {/* Footer - simplified */}
           <div className="border-t border-gray-200 pt-4 pb-6 mt-auto text-center">
             <p className="text-xs text-gray-500 md:text-sm">&copy; 2025 Omni Portal</p>
-          </div>
           </div>
         </main>
         

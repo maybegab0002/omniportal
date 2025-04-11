@@ -31,6 +31,7 @@ interface Ticket {
   Resolution: string | null;
   Attachment: string | null;
   Category: string | null;
+  Response: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -92,6 +93,8 @@ function TicketPage() {
   }, [statusFilter]);
 
   // Function to update ticket status
+  const [response, setResponse] = useState<string>('');
+
   const updateTicketStatus = async (ticketId: number, status: string) => {
     try {
       const { error } = await supabase
@@ -169,6 +172,7 @@ function TicketPage() {
   // Function to open ticket detail modal
   const openTicketModal = (ticket: Ticket) => {
     setSelectedTicket(ticket);
+    setResponse(ticket.Response || '');
     setIsTicketModalOpen(true);
   };
 
@@ -494,6 +498,64 @@ function TicketPage() {
                           <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTicket.Description}</p>
                         </div>
                       </div>
+
+                      <div className="bg-gray-50 rounded-md p-4 shadow-sm hover-card">
+                        <h4 className="text-sm font-medium text-gray-900 flex items-center mb-2">
+                          <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                          Response
+                        </h4>
+                        <textarea
+                          value={response}
+                          onChange={(e) => setResponse(e.target.value)}
+                          placeholder="Enter your response here..."
+                          className="w-full min-h-[100px] p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            onClick={async () => {
+                              if (!response.trim()) {
+                                alert('Please enter a response');
+                                return;
+                              }
+                              try {
+                                const { error } = await supabase
+                                  .from('Tickets')
+                                  .update({ Response: response })
+                                  .eq('id', selectedTicket.id);
+                                
+                                if (error) throw error;
+                                
+                                // Update local state
+                                setTickets(tickets.map(t => 
+                                  t.id === selectedTicket.id 
+                                    ? { ...t, Response: response }
+                                    : t
+                                ));
+                                setSelectedTicket({ ...selectedTicket, Response: response });
+                                alert('Response saved successfully!');
+                              } catch (error) {
+                                console.error('Error saving response:', error);
+                                alert('Failed to save response');
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            Save Response
+                          </button>
+                        </div>
+                      </div>
+
+                      {selectedTicket.Response && (
+                        <div className="bg-gray-50 rounded-md p-4 shadow-sm hover-card">
+                          <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                            <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-500 mr-1.5" aria-hidden="true" />
+                            Current Response
+                          </h4>
+                          <div className="mt-2 rounded-md bg-white p-4 shadow-inner border border-gray-100">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTicket.Response}</p>
+                          </div>
+                        </div>
+                      )}
                       
                       {selectedTicket.Attachment && (
                         <div className="bg-gray-50 rounded-md p-4 shadow-sm hover-card">
